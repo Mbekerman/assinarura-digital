@@ -100,15 +100,12 @@ fun HomeScreen(vm: AppViewModel, state: AppUiState) {
     }
     BackHandler(enabled = selecting) { selection = emptyList() }
 
-    Box(Modifier.fillMaxSize()) {
-        LazyColumn(
-            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
-            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 16.dp, bottom = if (selecting) 96.dp else 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            item {
-                if (selecting) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Box(Modifier.fillMaxSize().statusBarsPadding()) {
+        Column(Modifier.fillMaxSize()) {
+            // Barra fixa da seleção, como na galeria: fica visível com a lista rolada
+            if (selecting) {
+                Surface(color = colors.superficie, shadowElevation = 4.dp, modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { selection = emptyList() }) { Icon(BkmIcons.Fechar, contentDescription = "Cancelar seleção") }
                         Spacer(Modifier.width(4.dp))
                         Text(
@@ -123,7 +120,14 @@ fun HomeScreen(vm: AppViewModel, state: AppUiState) {
                             BotaoLink("Desmarcar todos", onClick = { selection = emptyList() })
                         }
                     }
-                } else {
+                }
+            }
+            LazyColumn(
+                Modifier.fillMaxWidth().weight(1f).navigationBarsPadding(),
+                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 16.dp, bottom = if (selecting) 96.dp else 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                item {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         val symbol = remember { BkmIcons.simboloCasa(BkmIcons.gradienteMarca) }
                         Image(rememberVectorPainter(symbol), contentDescription = null, modifier = Modifier.size(width = 22.dp, height = 24.dp))
@@ -132,88 +136,88 @@ fun HomeScreen(vm: AppViewModel, state: AppUiState) {
                         IconButton(onClick = { vm.openSettings() }) { Icon(BkmIcons.Ajustes, contentDescription = "Configurações") }
                     }
                 }
-            }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 24.dp)) {
-                    Text("AssinaPDF", style = MaterialTheme.typography.displaySmall, color = colors.texto)
-                    Text(
-                        "Abra um PDF aqui ou compartilhe pelo WhatsApp, posicione os carimbos e assine com o seu certificado SafeID.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = colors.textoSuave,
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 24.dp)) {
+                        Text("AssinaPDF", style = MaterialTheme.typography.displaySmall, color = colors.texto)
+                        Text(
+                            "Abra um PDF aqui ou compartilhe pelo WhatsApp, posicione os carimbos e assine com o seu certificado SafeID.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = colors.textoSuave,
+                        )
+                    }
+                }
+                item {
+                    BotaoPrincipal(
+                        "Abrir PDF",
+                        onClick = { picker.launch(arrayOf("application/pdf")) },
+                        icon = BkmIcons.Pasta,
+                        seta = true,
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     )
                 }
-            }
-            item {
-                BotaoPrincipal(
-                    "Abrir PDF",
-                    onClick = { picker.launch(arrayOf("application/pdf")) },
-                    icon = BkmIcons.Pasta,
-                    seta = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                )
-            }
-            if (!state.signingConfigured) {
-                item {
-                    Aviso("Assinatura SafeID ainda não configurada neste APK. O editor e a exportação de rascunho funcionam normalmente.", alerta = true)
-                }
-            }
-            state.resumable?.let { session ->
-                item {
-                    Surface(
-                        onClick = { vm.resume(session.documentId) },
-                        shape = RoundedCornerShape(20.dp),
-                        color = colors.superficieElevada,
-                        contentColor = colors.texto,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Rotulo("Continuar edição")
-                            Text(session.originalName, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Text(
-                                "${session.sheet.stamps.size} carimbo(s) · ${session.pageCount} página(s)",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = colors.textoSuave,
-                            )
-                        }
+                if (!state.signingConfigured) {
+                    item {
+                        Aviso("Assinatura SafeID ainda não configurada neste APK. O editor e a exportação de rascunho funcionam normalmente.", alerta = true)
                     }
                 }
-            }
-            if (state.recents.isNotEmpty()) {
-                item { Rotulo("Recentes", Modifier.padding(top = 16.dp)) }
-                items(state.recents, key = { it.id }) { r ->
-                    val isSelected = r.id in selected
-                    Column {
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .background(if (isSelected) colors.superficieElevada else Color.Transparent, RoundedCornerShape(12.dp))
-                                .combinedClickable(
-                                    onClickLabel = if (selecting) "Marcar ou desmarcar" else "Abrir",
-                                    onLongClickLabel = "Selecionar para compartilhar",
-                                    onLongClick = { toggle(r) },
-                                    onClick = { if (selecting) toggle(r) else vm.resume(r.id) },
-                                )
-                                .semantics { this.selected = isSelected }
-                                .padding(vertical = 12.dp, horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                state.resumable?.let { session ->
+                    item {
+                        Surface(
+                            onClick = { vm.resume(session.documentId) },
+                            shape = RoundedCornerShape(20.dp),
+                            color = colors.superficieElevada,
+                            contentColor = colors.texto,
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
-                            if (selecting) {
-                                MarcaSelecao(isSelected, enabled = r.signed)
-                            } else {
-                                Icon(BkmIcons.Documento, contentDescription = null, tint = colors.destaque, modifier = Modifier.size(24.dp))
+                            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Rotulo("Continuar edição")
+                                Text(session.originalName, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    "${session.sheet.stamps.size} carimbo(s) · ${session.pageCount} página(s)",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = colors.textoSuave,
+                                )
                             }
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(r.signedFileName ?: r.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(dateFmt.format(Date(r.openedAtMs)), style = MaterialTheme.typography.bodySmall, color = colors.textoSuave)
-                            }
-                            if (r.signed) Selo("Assinado", destaque = true) else Selo("Em edição")
                         }
-                        HorizontalDivider(color = colors.linha)
                     }
                 }
+                if (state.recents.isNotEmpty()) {
+                    item { Rotulo("Recentes", Modifier.padding(top = 16.dp)) }
+                    items(state.recents, key = { it.id }) { r ->
+                        val isSelected = r.id in selected
+                        Column {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .background(if (isSelected) colors.superficieElevada else Color.Transparent, RoundedCornerShape(12.dp))
+                                    .combinedClickable(
+                                        onClickLabel = if (selecting) "Marcar ou desmarcar" else "Abrir",
+                                        onLongClickLabel = "Selecionar para compartilhar",
+                                        onLongClick = { toggle(r) },
+                                        onClick = { if (selecting) toggle(r) else vm.resume(r.id) },
+                                    )
+                                    .semantics { this.selected = isSelected }
+                                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (selecting) {
+                                    MarcaSelecao(isSelected, enabled = r.signed)
+                                } else {
+                                    Icon(BkmIcons.Documento, contentDescription = null, tint = colors.destaque, modifier = Modifier.size(24.dp))
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(r.signedFileName ?: r.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(dateFmt.format(Date(r.openedAtMs)), style = MaterialTheme.typography.bodySmall, color = colors.textoSuave)
+                                }
+                                if (r.signed) Selo("Assinado", destaque = true) else Selo("Em edição")
+                            }
+                            HorizontalDivider(color = colors.linha)
+                        }
+                    }
+                }
+                item { Box(Modifier.height(24.dp)) }
             }
-            item { Box(Modifier.height(24.dp)) }
         }
         if (selecting) {
             Surface(

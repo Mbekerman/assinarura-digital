@@ -81,10 +81,11 @@ class ShareSelectedTest {
 
                 scrollTo("contrato_assinado.pdf")
                 compose.onNodeWithText("contrato_assinado.pdf").performTouchInput { longClick() }
+                // barra de seleção fixa no topo, visível mesmo com a lista rolada
                 compose.onNodeWithText("1 selecionado").assertExists()
+                compose.onNodeWithText("Compartilhar 1 PDF").assertExists()
                 scrollTo("planta_assinado.pdf")
                 compose.onNodeWithText("planta_assinado.pdf").performClick()
-                scrollTo("2 selecionados")
                 compose.onNodeWithText("2 selecionados").assertExists()
                 compose.onNodeWithText("Compartilhar 2 PDFs").performClick()
 
