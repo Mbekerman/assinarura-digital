@@ -37,8 +37,34 @@ O que não é usado, e por quê:
 - `/pades-signature/*`: envia o PDF inteiro ao PSC e não aceita carimbo girado. O app manda só o
   hash.
 - Fluxo CA (`authorize-ca`, `pwd_authorize`, com PIN): exigiria pedir o PIN dentro do app.
-- `/signature-icp`: assina com política ICP-Brasil (`signature_policy`, por exemplo AD-RB). Fica
-  como alternativa se o VALIDAR do ITI apontar a falta da política.
+- `/signature-icp`: assina com política ICP-Brasil no próprio PSC. Desnecessário: o app inclui a
+  política no CMS que ele mesmo monta (veja abaixo).
+
+## Política de assinatura (PAdES AD-RB v1.3)
+
+O app declara a política PAdES AD-RB v1.3 da ICP-Brasil (`SignaturePolicy.PADES_AD_RB_V1_3`):
+
+| Campo | Valor |
+|---|---|
+| OID | `2.16.76.1.7.1.11.1.3` |
+| Resumo (SHA-256) | `23E4BE4B9B362172E4EBB0E72B86A133ECE5AAD843D8651C6E38A0BA3F08FC60` |
+| URI | `http://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der` |
+
+Origem e conferência:
+
+- A lista oficial `LPA_PAdES.der` dá a AD-RB v1.3 como vigente desde 23/07/2025 (período de
+  assinatura até 22/10/2037); a v1.2 foi revogada nessa data.
+- O SHA-256 do arquivo da política confere com o resumo da LPA.
+- O resumo embutido na assinatura é o campo `signPolicyHash` do próprio arquivo (não o SHA-256 do
+  arquivo inteiro). Conferido com uma assinatura AD-RT v1.3 real aprovada pelo ITI: o atributo
+  montado pelo app com os valores dela é idêntico, byte a byte (teste em `PadesCmsTest`).
+- A política exige content-type, message-digest, signing-certificate-v2 e sigPolicyId, e aceita
+  sha256WithRSAEncryption: é o que o app gera.
+- O validador do ITI só avalia a política de assinaturas com certificado ICP-Brasil; com
+  certificado de teste ele a dá como inválida até para a política da assinatura aprovada. A
+  confirmação final é uma assinatura real.
+
+Quando o ITI publicar outra versão e revogar a v1.3, os valores precisam ser atualizados.
 
 ## Como a autorização funciona no celular
 

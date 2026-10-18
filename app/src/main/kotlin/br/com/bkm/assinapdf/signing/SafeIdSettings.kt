@@ -28,7 +28,8 @@ object SafeIdSettings {
                 uri = BuildConfig.SAFEID_POLICY_URI.ifBlank { null },
             )
         } else {
-            null
+            // padrão: PAdES AD-RB v1.3 oficial da ICP-Brasil
+            SignaturePolicy.PADES_AD_RB_V1_3
         }
         return runCatching {
             PscConfig(

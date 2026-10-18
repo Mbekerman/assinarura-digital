@@ -82,4 +82,21 @@ data class SignaturePolicy(
     val hashAlgorithmOid: String,
     val hashBase64: String,
     val uri: String? = null,
-)
+) {
+    companion object {
+        /**
+         * PAdES AD-RB v1.3 da ICP-Brasil, vigente desde 23/07/2025 (período de assinatura até
+         * 22/10/2037 na LPA_PAdES). Tirada de http://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der:
+         * o SHA-256 do arquivo confere com o da LPA (23DA544A…) e o hash abaixo é o campo
+         * signPolicyHash do próprio arquivo, mesmo critério das assinaturas que o validador do ITI
+         * aprova (conferido com uma AD-RT v1.3 real). A política exige content-type, message-digest,
+         * signing-certificate-v2 e o próprio sigPolicyId, e aceita sha256WithRSAEncryption.
+         */
+        val PADES_AD_RB_V1_3 = SignaturePolicy(
+            oid = "2.16.76.1.7.1.11.1.3",
+            hashAlgorithmOid = "2.16.840.1.101.3.4.2.1",
+            hashBase64 = "I+S+S5s2IXLk67DnK4ahM+zlqthD2GUcbjiguj8I/GA=",
+            uri = "http://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der",
+        )
+    }
+}

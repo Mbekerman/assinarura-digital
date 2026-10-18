@@ -103,7 +103,7 @@ O rascunho de um PDF já assinado ainda usa anotações, porque não é assinado
    gravado no `/M` da assinatura.
 2. O PDF é preparado com `/Contents` reservado (`ETSI.CAdES.detached`).
 3. O app calcula o SHA-256 do ByteRange, monta os atributos assinados (content-type,
-   message-digest, signing-certificate-v2 e, se configurada, a política ICP-Brasil) e envia ao
+   message-digest, signing-certificate-v2 e a política PAdES AD-RB v1.3 da ICP-Brasil) e envia ao
    SafeID **só o hash** desses atributos.
 4. A assinatura RSA devolvida é conferida com a chave pública antes de ser embutida.
 5. O arquivo é reaberto e verificado (ByteRange cobre o arquivo inteiro, hash e assinatura

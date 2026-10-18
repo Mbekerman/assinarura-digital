@@ -6,6 +6,7 @@ import org.bouncycastle.asn1.ASN1ObjectIdentifier
 import org.bouncycastle.asn1.cms.CMSAttributes
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers
 import org.bouncycastle.cms.CMSSignedData
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -76,6 +77,43 @@ class PadesCmsTest {
         assertNotNull(attrs.get(PKCSObjectIdentifiers.id_aa_ets_sigPolicyId))
         assertTrue(CmsVerifier.verifyDetached(cms, Date()) { it.write(content) }.valid)
     }
+
+    @Test
+    fun `sigPolicyId identico ao de uma assinatura AD-RT aprovada pelo ITI`() {
+        // atributo extraído de uma assinatura PAdES AD-RT v1.3 real (outro sistema), aprovada no validar.iti.gov.br
+        val aprovado = "30819A060B2A864886F70D010910020F31818A3081870608604C0107010C0103302F300B0609608648016503040201" +
+            "042021D6E8D9F85E5626DC71307337A7CABD6FFEF8D085038746775CF0CE6BA4D3B5304A3048060B2A864886F70D010910050116" +
+            "39687474703A2F2F706F6C6974696361732E69637062726173696C2E676F762E62722F50415F50416445535F41445F52545F76315F332E646572"
+        val adRt = SignaturePolicy(
+            oid = "2.16.76.1.7.1.12.1.3",
+            hashAlgorithmOid = "2.16.840.1.101.3.4.2.1",
+            hashBase64 = Base64.getEncoder().encodeToString(hex("21D6E8D9F85E5626DC71307337A7CABD6FFEF8D085038746775CF0CE6BA4D3B5")),
+            uri = "http://politicas.icpbrasil.gov.br/PA_PAdES_AD_RT_v1_3.der",
+        )
+        val set = PadesCms.buildSignedAttributes(ByteArray(32), pki.holderCert, adRt).set
+        val attr = set.map { org.bouncycastle.asn1.cms.Attribute.getInstance(it) }
+            .single { it.attrType == PKCSObjectIdentifiers.id_aa_ets_sigPolicyId }
+        assertArrayEquals(hex(aprovado), attr.getEncoded("DER"))
+    }
+
+    @Test
+    fun `signing-certificate-v2 omite o algoritmo padrao SHA-256`() {
+        val set = PadesCms.buildSignedAttributes(ByteArray(32), pki.holderCert).set
+        val attr = set.map { org.bouncycastle.asn1.cms.Attribute.getInstance(it) }
+            .single { it.attrType == PKCSObjectIdentifiers.id_aa_signingCertificateV2 }
+        val certId = org.bouncycastle.asn1.ess.SigningCertificateV2.getInstance(attr.attrValues.getObjectAt(0)).certs.single()
+        val seq = certId.toASN1Primitive() as org.bouncycastle.asn1.ASN1Sequence
+        assertTrue(seq.toArray().none { it is org.bouncycastle.asn1.x509.AlgorithmIdentifier || (it is org.bouncycastle.asn1.ASN1Sequence && it.size() > 0 && it.getObjectAt(0) is org.bouncycastle.asn1.ASN1ObjectIdentifier) })
+    }
+
+    @Test
+    fun `politica AD-RB v1_3 com os valores oficiais`() {
+        val p = SignaturePolicy.PADES_AD_RB_V1_3
+        assertEquals("2.16.76.1.7.1.11.1.3", p.oid)
+        assertEquals("23E4BE4B9B362172E4EBB0E72B86A133ECE5AAD843D8651C6E38A0BA3F08FC60", Base64.getDecoder().decode(p.hashBase64).joinToString("") { "%02X".format(it) })
+    }
+
+    private fun hex(s: String) = ByteArray(s.length / 2) { s.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 
     @Test
     fun `zeros de preenchimento do Contents sao descartados`() = runTest {

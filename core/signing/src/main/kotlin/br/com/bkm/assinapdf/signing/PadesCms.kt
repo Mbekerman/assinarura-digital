@@ -78,7 +78,8 @@ object PadesCms {
             GeneralNames(GeneralName(X500Name.getInstance(signer.issuerX500Principal.encoded))),
             ASN1Integer(signer.serialNumber),
         )
-        val essCertId = ESSCertIDv2(SHA256, certHash, issuerSerial)
+        // SHA-256 é o padrão do ESSCertIDv2: em DER o algoritmo é omitido (o ITI alerta quando vem explícito)
+        val essCertId = ESSCertIDv2(certHash, issuerSerial)
         v.add(Attribute(PKCSObjectIdentifiers.id_aa_signingCertificateV2, DERSet(SigningCertificateV2(arrayOf(essCertId)))))
         if (policy != null) {
             val hashAlg = AlgorithmIdentifier(ASN1ObjectIdentifier(policy.hashAlgorithmOid))
