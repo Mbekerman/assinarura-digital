@@ -216,9 +216,7 @@ class StampEditor(
 
     fun rotate90(id: String, clockwise: Boolean) {
         val stamp = find(id) ?: return
-        val base = Math.round(stamp.rotationDeg / 90.0) * 90.0
-        val snappedCurrent = if (kotlin.math.abs(stamp.rotationDeg - base) < 1e-6) stamp.rotationDeg else stamp.rotationDeg
-        setRotation(id, snappedCurrent + if (clockwise) 90.0 else -90.0)
+        setRotation(id, stamp.rotationDeg + if (clockwise) 90.0 else -90.0)
     }
 
     fun delete(id: String) = update { s ->
@@ -240,15 +238,22 @@ class StampEditor(
         return copy
     }
 
-    /** Restaura o carimbo (e o padrão herdado) ao tamanho e rotação de fábrica. */
-    fun resetToFactory(id: String) {
+    /** Restaura o carimbo (e o padrão herdado) ao tamanho padrão configurado e rotação 0°. */
+    fun resetToFactory(id: String, defaults: StampDefaults = StampDefaults.FACTORY) {
         val stamp = find(id) ?: return
-        val updated = stamp.copy(widthFraction = StampDefaults.FACTORY.widthFraction, rotationDeg = StampDefaults.FACTORY.rotationDeg)
-        update { s -> s.copy(stamps = s.stamps.map { if (it.id == id) updated else it }, lastUsed = StampDefaults.FACTORY) }
+        val updated = stamp.copy(widthFraction = StampRules.clampWidthFraction(defaults.widthFraction), rotationDeg = Stamp.normalizeDegrees(defaults.rotationDeg))
+        update { s -> s.copy(stamps = s.stamps.map { if (it.id == id) updated else it }, lastUsed = defaults) }
     }
 
     /** Restaura apenas o padrão herdado pelos próximos carimbos. */
-    fun resetDefaults() = update { it.copy(lastUsed = StampDefaults.FACTORY) }
+    fun resetDefaults(defaults: StampDefaults = StampDefaults.FACTORY) = update { it.copy(lastUsed = defaults) }
+
+    /** Transformação livre durante um gesto (pinça e rotação de dois dedos sobre o carimbo). */
+    fun transformDuringGesture(id: String, scaleFactor: Double, rotationDeg: Double) {
+        val stamp = find(id) ?: return
+        val scaled = StampInteraction.scaledBy(stamp, scaleFactor)
+        replaceStamp(scaled.withRotation(StampRules.snapRotation(rotationDeg)))
+    }
 
     /** Aplica a rotação de [sourceId] ao carimbo [targetId]. */
     fun applyRotationFrom(sourceId: String, targetId: String) {

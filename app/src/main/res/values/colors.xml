@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tokens do design system BKM -->
+    <color name="marinho">#FF1D2E5C</color>
+    <color name="branco">#FFFFFFFF</color>
+    <color name="azul_bkm">#FF0094FE</color>
+</resources>
