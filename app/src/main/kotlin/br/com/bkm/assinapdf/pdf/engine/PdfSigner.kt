@@ -171,7 +171,16 @@ object PdfSigner {
         widget.rectangle = placed.rect
         widget.appearance = PDAppearanceDictionary().also { it.setNormalAppearance(placed.appearance) }
         widget.cosObject.setInt(COSName.F, StampPdfWriter.FLAG_PRINT or StampPdfWriter.FLAG_LOCKED)
-        markPathToRoot(doc, doc.getPage(visible.stamp.pageIndex).cosObject)
+        // No pdfbox-android 2.0.27, addSignature sem aparência visual retorna antes de pôr o widget
+        // no /Annots da página (o Apache PDFBox 2.0.37 põe): sem isso o carimbo não aparece.
+        val page = doc.getPage(visible.stamp.pageIndex)
+        widget.page = page
+        val annotations = page.annotations
+        if (annotations.none { it.cosObject === widget.cosObject }) {
+            annotations.add(widget)
+            page.annotations = annotations
+        }
+        markPathToRoot(doc, page.cosObject)
     }
 
     /**
