@@ -1,0 +1,22 @@
+# Gradle / build
+.gradle/
+build/
+**/build/
+.kotlin/
+# Android Studio / IDE
+.idea/
+*.iml
+local.properties
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+# Credenciais e configuração local (nunca versionar)
+signing-config.properties
+keystore/*.jks
+keystore/*.keystore
+*.p12
+# Saídas
+*.apk
+*.aab
+verify/pdf-jvm/out/
