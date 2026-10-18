@@ -96,3 +96,28 @@ jobs:
           name: relatorios-instrumentados
           path: app/build/reports/androidTests/
           if-no-files-found: ignore
+
+  publicar:
+    name: Publicar APK de teste
+    needs: [build, instrumented]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: assinapdf-apk
+          path: apk
+      - name: Atualizar o Release "apk-teste"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cp apk/release/app-release.apk AssinaPDF.apk
+          gh release delete apk-teste --cleanup-tag --yes || true
+          gh release create apk-teste AssinaPDF.apk \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "AssinaPDF - versão de teste" \
+            --notes "APK gerado automaticamente a partir de ${GITHUB_SHA::7} (branch ${GITHUB_REF_NAME}), depois de todos os testes passarem. Assinatura SafeID ainda não configurada: o editor e o rascunho funcionam."
