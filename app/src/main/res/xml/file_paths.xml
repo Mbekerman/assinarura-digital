@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Somente as pastas de saída: PDFs assinados e rascunhos exportados -->
+    <files-path name="saidas" path="docs/" />
+    <cache-path name="compartilhados" path="shared/" />
+</paths>
