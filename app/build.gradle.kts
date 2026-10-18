@@ -66,8 +66,9 @@ android {
             create("release") {
                 storeFile = rootProject.file(storePath)
                 storePassword = cfg("release.storePassword")
-                keyAlias = cfg("release.keyAlias")
-                keyPassword = cfg("release.keyPassword")
+                // alias não é segredo; em PKCS12 a senha da chave é a mesma do arquivo
+                keyAlias = cfg("release.keyAlias", "assinapdf")
+                keyPassword = cfg("release.keyPassword").ifEmpty { cfg("release.storePassword") }
             }
         }
     }

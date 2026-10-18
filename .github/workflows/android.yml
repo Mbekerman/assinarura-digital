@@ -44,6 +44,7 @@ jobs:
       - name: APK e testes unitários do app
         env:
           RELEASE_STOREPASSWORD: ${{ secrets.RELEASE_STOREPASSWORD }}
+          # Opcionais: padrão alias "assinapdf" e senha da chave igual à do arquivo
           RELEASE_KEYALIAS: ${{ secrets.RELEASE_KEYALIAS }}
           RELEASE_KEYPASSWORD: ${{ secrets.RELEASE_KEYPASSWORD }}
           # Chave de acesso ao serviço intermediário (server/retorno, variável BROKER_KEY na Railway).
