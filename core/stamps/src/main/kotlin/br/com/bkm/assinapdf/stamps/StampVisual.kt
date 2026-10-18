@@ -21,6 +21,12 @@ object StampVisual {
     const val CINZA_ESCURO = 0xFF43464B.toInt()
     const val BRANCO = 0xFFFFFFFF.toInt()
 
+    /** Degradê da marca (o mesmo do símbolo no app): ciano → azul-bkm (55%) → profundo, da esquerda para a direita. */
+    const val GRADIENTE_CIANO = 0xFF0EC2FF.toInt()
+    const val GRADIENTE_PROFUNDO = 0xFF1459C3.toInt()
+    val HOUSE_GRADIENT_COLORS = intArrayOf(GRADIENTE_CIANO, AZUL_BKM, GRADIENTE_PROFUNDO)
+    val HOUSE_GRADIENT_STOPS = doubleArrayOf(0.0, 0.55, 1.0)
+
     /** Verde do logo ICP-Brasil, medido no carimbo do SafeID. */
     const val VERDE_ICP = 0xFF179546.toInt()
 
@@ -108,8 +114,8 @@ object StampVisual {
     val housePath: List<PathCmd> by lazy {
         // caixa original 185,959 × 200; altura final 34. A base pesada põe o centro de área em
         // y = 118,6; o centro óptico usado fica entre ele e o meio da caixa (100)
-        val s = 34.0 / 200.0
-        val ox = SEAL_CX - 185.959 * s / 2
+        val s = HOUSE_SCALE
+        val ox = HOUSE_LEFT
         val oy = SEAL_CY - HOUSE_OPTICAL_CENTER * s
         fun m(x: Double, y: Double) = PathCmd.MoveTo(ox + x * s, oy + y * s)
         fun l(x: Double, y: Double) = PathCmd.LineTo(ox + x * s, oy + y * s)
@@ -128,6 +134,12 @@ object StampVisual {
 
     /** Centro óptico vertical da casa, nas unidades da caixa original (0 a 200). */
     const val HOUSE_OPTICAL_CENTER = 109.3
+
+    private const val HOUSE_SCALE = 34.0 / 200.0
+
+    /** Extremos horizontais da casa, para o eixo do degradê. */
+    val HOUSE_LEFT = SEAL_CX - 185.959 * HOUSE_SCALE / 2
+    val HOUSE_RIGHT = SEAL_CX + 185.959 * HOUSE_SCALE / 2
 
     data class TextLine(
         val text: String,

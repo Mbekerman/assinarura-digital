@@ -2,9 +2,11 @@ package br.com.bkm.assinapdf.ui.editor
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.Shader
 import android.graphics.Typeface
 import br.com.bkm.assinapdf.stamps.StampContent
 import br.com.bkm.assinapdf.stamps.StampVisual
@@ -22,6 +24,16 @@ class StampPainter {
     private val bold = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
     private val rect = RectF()
     private val house = toPath(StampVisual.housePath)
+    private val houseFill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        val y = StampVisual.SEAL_CY.toFloat()
+        shader = LinearGradient(
+            StampVisual.HOUSE_LEFT.toFloat(), y, StampVisual.HOUSE_RIGHT.toFloat(), y,
+            StampVisual.HOUSE_GRADIENT_COLORS,
+            StampVisual.HOUSE_GRADIENT_STOPS.map { it.toFloat() }.toFloatArray(),
+            Shader.TileMode.CLAMP,
+        )
+    }
     private val logo: Bitmap by lazy {
         val alpha = StampVisual.icpLogoAlpha
         val rgb = StampVisual.VERDE_ICP and 0xFFFFFF
@@ -56,8 +68,7 @@ class StampPainter {
         stroke.strokeWidth = StampVisual.SEAL_STROKE.toFloat()
         stroke.color = StampVisual.AZUL_BKM
         canvas.drawCircle(cx, cy, r, stroke)
-        fill.color = StampVisual.AZUL_BKM
-        canvas.drawPath(house, fill)
+        canvas.drawPath(house, houseFill)
 
         if (content.showIcpLogo) {
             rect.set(

@@ -6,6 +6,7 @@ import br.com.bkm.assinapdf.stamps.StampContent
 import br.com.bkm.assinapdf.stamps.StampPlacement
 import br.com.bkm.assinapdf.stamps.StampVisual
 import com.tom_roush.pdfbox.cos.COSArray
+import com.tom_roush.pdfbox.cos.COSBoolean
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSFloat
 import com.tom_roush.pdfbox.cos.COSName
@@ -19,6 +20,7 @@ import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceGray
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceRGB
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
+import com.tom_roush.pdfbox.pdmodel.graphics.shading.PDShadingType2
 import com.tom_roush.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationRubberStamp
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary
@@ -191,9 +193,12 @@ object StampPdfWriter {
         color(cs, StampVisual.AZUL_BKM, stroke = true)
         circle(cs, StampVisual.SEAL_CX, h - StampVisual.SEAL_CY, StampVisual.SEAL_R)
         cs.stroke()
-        color(cs, StampVisual.AZUL_BKM, stroke = false)
+        // casa com o degradê da marca: sombreamento axial recortado no contorno
+        cs.saveGraphicsState()
         path(cs, StampVisual.housePath)
-        cs.fill()
+        cs.clip()
+        cs.shadingFill(houseGradient(y(StampVisual.SEAL_CY)))
+        cs.restoreGraphicsState()
 
         // Logo ICP-Brasil (imagem com máscara de transparência, sem perdas)
         if (content.showIcpLogo) {
@@ -227,6 +232,46 @@ object StampPdfWriter {
             is StampVisual.PathCmd.CubicTo -> cs.curveTo(x(c.x1), y(c.y1), x(c.x2), y(c.y2), x(c.x), y(c.y))
             StampVisual.PathCmd.Close -> cs.closePath()
         }
+    }
+
+    /** Degradê horizontal da casa: função de costura com um trecho linear entre cada par de cores. */
+    private fun houseGradient(y: Float): PDShadingType2 {
+        fun rgb(argb: Int) = COSArray().also { a ->
+            a.add(COSFloat(((argb shr 16) and 0xFF) / 255f))
+            a.add(COSFloat(((argb shr 8) and 0xFF) / 255f))
+            a.add(COSFloat((argb and 0xFF) / 255f))
+        }
+        fun floats(vararg v: Float) = COSArray().also { a -> v.forEach { a.add(COSFloat(it)) } }
+        val colors = StampVisual.HOUSE_GRADIENT_COLORS
+        val stops = StampVisual.HOUSE_GRADIENT_STOPS
+        val pieces = COSArray()
+        val encode = COSArray()
+        for (i in 0 until colors.size - 1) {
+            pieces.add(COSDictionary().apply {
+                setInt(COSName.FUNCTION_TYPE, 2)
+                setItem(COSName.DOMAIN, floats(0f, 1f))
+                setItem(COSName.C0, rgb(colors[i]))
+                setItem(COSName.C1, rgb(colors[i + 1]))
+                setInt(COSName.N, 1)
+            })
+            encode.add(COSFloat(0f))
+            encode.add(COSFloat(1f))
+        }
+        val stitching = COSDictionary().apply {
+            setInt(COSName.FUNCTION_TYPE, 3)
+            setItem(COSName.DOMAIN, floats(0f, 1f))
+            setItem(COSName.FUNCTIONS, pieces)
+            setItem(COSName.BOUNDS, floats(*stops.drop(1).dropLast(1).map { it.toFloat() }.toFloatArray()))
+            setItem(COSName.ENCODE, encode)
+        }
+        val shading = COSDictionary().apply {
+            setInt(COSName.SHADING_TYPE, 2)
+            setItem(COSName.COLORSPACE, COSName.DEVICERGB)
+            setItem(COSName.COORDS, floats(StampVisual.HOUSE_LEFT.toFloat(), y, StampVisual.HOUSE_RIGHT.toFloat(), y))
+            setItem(COSName.FUNCTION, stitching)
+            setItem(COSName.EXTEND, COSArray().also { it.add(COSBoolean.TRUE); it.add(COSBoolean.TRUE) })
+        }
+        return PDShadingType2(shading)
     }
 
     /** Logo ICP-Brasil: cor sólida com a cobertura como /SMask. */
