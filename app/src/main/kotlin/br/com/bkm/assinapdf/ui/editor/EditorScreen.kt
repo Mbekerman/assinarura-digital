@@ -443,7 +443,7 @@ private fun ProgressDialog(title: String, text: String, action: (@Composable () 
 
 @Composable
 private fun CertificateChooser(options: List<CloudCertificate>, onPick: (CloudCertificate) -> Unit, onDismiss: () -> Unit) {
-    val fmt = remember { SimpleDateFormat("dd/MM/yyyy", Locale("pt", "BR")) }
+    val fmt = remember { SimpleDateFormat("dd/MM/yyyy", Locale.forLanguageTag("pt-BR")) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Escolha o certificado") },

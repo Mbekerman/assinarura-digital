@@ -42,7 +42,14 @@ class AddStampsGestureTest {
         }
         ActivityScenario.launch<MainActivity>(intent).use { scenario ->
             compose.waitUntil(15_000) { compose.onAllNodesWithText("multiplos.pdf").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("Adicionar assinaturas").performClick()
+            var addMode = false
+            scenario.onActivity { addMode = it.appViewModel.state.value.settings.addMode }
+            if (!addMode) compose.onNodeWithText("Adicionar assinaturas").performClick()
+            compose.waitUntil(5_000) {
+                var on = false
+                scenario.onActivity { on = it.appViewModel.state.value.settings.addMode }
+                on
+            }
             compose.waitForIdle()
             val canvas = compose.onNodeWithContentDescription("Documento PDF")
             for (i in 0 until 10) {

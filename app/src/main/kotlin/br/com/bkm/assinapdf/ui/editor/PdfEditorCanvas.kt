@@ -559,4 +559,4 @@ private fun DrawScope.drawSelection(
 }
 
 internal fun formatMm(mm: Double): String =
-    if (abs(mm - mm.roundToInt()) < 0.05 || mm >= 100) mm.roundToInt().toString() else String.format(java.util.Locale("pt", "BR"), "%.1f", mm)
+    if (abs(mm - mm.roundToInt()) < 0.05 || mm >= 100) mm.roundToInt().toString() else String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f", mm)

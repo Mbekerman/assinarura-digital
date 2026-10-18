@@ -315,6 +315,8 @@ class AppViewModel(private val c: AppContainer) : ViewModel() {
     fun redo() { editor?.redo() }
 
     fun setAddMode(on: Boolean) {
+        // Atualiza a interface na hora; a gravação no DataStore vem em seguida.
+        _state.update { it.copy(settings = it.settings.copy(addMode = on)) }
         viewModelScope.launch { c.settings.setAddMode(on) }
         if (!on) editor?.select(null)
     }
@@ -366,7 +368,7 @@ class AppViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch {
             _state.update { it.copy(loading = "Gerando rascunho") }
             try {
-                val now = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("pt", "BR")).format(Date())
+                val now = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.forLanguageTag("pt-BR")).format(Date())
                 val out = c.storage.uniqueOutput(doc.session.documentId, FileNames.draftName(doc.session.originalName))
                 withContext(Dispatchers.IO) {
                     StampPdfWriter.write(

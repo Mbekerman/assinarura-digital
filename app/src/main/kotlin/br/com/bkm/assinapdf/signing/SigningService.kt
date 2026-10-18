@@ -185,7 +185,7 @@ class SigningService(
         private const val KEY_TOKEN = "safeid_token"
         private const val KEY_PENDING = "safeid_autorizacao"
 
-        fun timeFormat() = SimpleDateFormat("dd/MM/yyyy HH:mm:ss XXX", Locale("pt", "BR"))
-        fun dateFormat() = SimpleDateFormat("dd/MM/yyyy", Locale("pt", "BR"))
+        fun timeFormat() = SimpleDateFormat("dd/MM/yyyy HH:mm:ss XXX", Locale.forLanguageTag("pt-BR"))
+        fun dateFormat() = SimpleDateFormat("dd/MM/yyyy", Locale.forLanguageTag("pt-BR"))
     }
 }
