@@ -148,7 +148,7 @@ class SigningService(
                     input = original,
                     output = partial,
                     stamps = stamps,
-                    content = StampContent.final(info.holderName, timeText, info.issuerName),
+                    content = StampContent.final(info.holderName, info.cpf, timeText),
                     style = style,
                     metadata = SignatureMetadata(info.holderName, calendar, reason = "Assinatura digital ICP-Brasil"),
                     workFile = { name -> storage.tempFile(documentId, name) },

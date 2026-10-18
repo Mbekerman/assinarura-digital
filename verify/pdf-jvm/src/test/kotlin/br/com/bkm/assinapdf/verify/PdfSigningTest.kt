@@ -43,7 +43,7 @@ class PdfSigningTest {
             input = input,
             output = signed,
             stamps = stamps,
-            content = StampContent.final(holder.holderName, "18/10/2026 10:00:00 -03:00", holder.issuerName),
+            content = StampContent.final(holder.holderName, holder.cpf, "18/10/2026 10:00:00 -03:00"),
             style = StampStyle(),
             metadata = SignatureMetadata(holder.holderName, time, reason = "Assinatura digital"),
             workFile = { n -> File(TestPdfs.outDir(), "$name-$n.tmp.pdf") },

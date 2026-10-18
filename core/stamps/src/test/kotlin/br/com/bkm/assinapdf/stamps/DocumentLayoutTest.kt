@@ -47,8 +47,15 @@ class DocumentLayoutTest {
         assertTrue(!p.label.contains("ASSINADO DIGITALMENTE POR"))
         val d = StampContent.draft("FULANO", "18/10/2026 10:00")
         assertTrue(d.label.contains("NÃO ASSINADO"))
-        val f = StampContent.final("FULANO DE TAL", "18/10/2026 10:00:00 -03:00", "AC SAFEWEB RFB v5")
-        assertEquals("ICP-Brasil · AC SAFEWEB RFB v5", f.certLine)
+        assertTrue(!d.showIcpLogo) // rascunho não leva o logo ICP-Brasil nem o "verifique"
+        assertTrue(!d.footer.contains("validar"))
+        val f = StampContent.final("FULANO DE TAL", "05191421604", "18/10/2026 10:00:00 -03:00")
+        assertEquals("CPF: 051.914.216-04", f.cpfLine)
+        assertEquals("Verifique em validar.iti.gov.br", f.footer)
+        assertTrue(f.showIcpLogo)
+        // sem CPF no certificado, a linha some (não inventa)
+        assertEquals("", StampContent.final("FULANO", null, "x").cpfLine)
+        assertEquals(StampVisual.LOGO_PIXELS_W * StampVisual.LOGO_PIXELS_H, StampVisual.icpLogoAlpha.size)
     }
 
     @Test

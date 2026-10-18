@@ -43,7 +43,7 @@ class VisibleStampOnDeviceTest {
             input = first,
             output = out,
             stamps = stamps,
-            content = StampContent.final("TESTE", "18/10/2026 16:00:00 -03:00", null),
+            content = StampContent.final("TESTE", "05191421604", "18/10/2026 16:00:00 -03:00"),
             style = StampStyle(),
             metadata = SignatureMetadata("TESTE", Calendar.getInstance()),
             workFile = { n -> File(dir, "$n.tmp.pdf") },

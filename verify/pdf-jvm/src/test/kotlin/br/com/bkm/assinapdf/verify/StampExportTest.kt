@@ -86,7 +86,7 @@ class StampExportTest {
                             hasColorNear(image, pt.first * pxPerPt, pt.second * pxPerPt, StampVisual.AZUL_BKM),
                         )
                     }
-                    val border = StampPlacement.designToDisplay(stamp, page, StampVisual.W / 2, StampVisual.BORDER_INSET)
+                    val border = StampPlacement.designToDisplay(stamp, page, StampVisual.W / 2, StampVisual.BORDER_BOTTOM)
                     assertTrue("moldura ausente", hasColorNear(image, border.first * pxPerPt, border.second * pxPerPt, StampVisual.MARINHO))
                 }
             }
