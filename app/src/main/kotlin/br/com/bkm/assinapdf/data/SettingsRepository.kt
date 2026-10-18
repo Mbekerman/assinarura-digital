@@ -39,6 +39,8 @@ data class RecentDocument(
     val openedAtMs: Long,
     val signed: Boolean = false,
     val signedFileName: String? = null,
+    /** Quando o PDF assinado foi salvo ou entregue a um app pelo compartilhamento; nulo se ainda não foi. */
+    val dispatchedAtMs: Long? = null,
 )
 
 class SettingsRepository(private val context: Context) {
@@ -92,6 +94,13 @@ class SettingsRepository(private val context: Context) {
     suspend fun upsertRecent(doc: RecentDocument) = context.settingsStore.edit { p ->
         val list = p[Keys.recents]?.let { runCatching { json.decodeFromString(recentsSerializer, it) }.getOrNull() } ?: emptyList()
         val updated = (listOf(doc) + list.filterNot { it.id == doc.id }).take(MAX_RECENTS)
+        p[Keys.recents] = json.encodeToString(recentsSerializer, updated)
+    }
+
+    /** Marca como despachados (salvos ou compartilhados) os documentos assinados [ids] ainda não marcados. */
+    suspend fun markDispatched(ids: Collection<String>, atMs: Long = System.currentTimeMillis()) = context.settingsStore.edit { p ->
+        val list = p[Keys.recents]?.let { runCatching { json.decodeFromString(recentsSerializer, it) }.getOrNull() } ?: return@edit
+        val updated = list.map { if (it.id in ids && it.signed && it.dispatchedAtMs == null) it.copy(dispatchedAtMs = atMs) else it }
         p[Keys.recents] = json.encodeToString(recentsSerializer, updated)
     }
 

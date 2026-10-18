@@ -52,6 +52,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import br.com.bkm.assinapdf.data.RecentDocument
+import br.com.bkm.assinapdf.sharing.DispatchTracking
 import br.com.bkm.assinapdf.sharing.ShareLauncher
 import br.com.bkm.assinapdf.ui.AppUiState
 import br.com.bkm.assinapdf.ui.AppViewModel
@@ -79,13 +80,12 @@ fun HomeScreen(vm: AppViewModel, state: AppUiState) {
     val scope = rememberCoroutineScope()
 
     // Seleção de PDFs assinados para compartilhar juntos (toque longo, como na galeria)
-    val signedDocs = state.recents.filter { it.signed }
-    val drafts = state.recents.filterNot { it.signed }
-    val onSignedTab = state.homeTab == HomeTab.ASSINADOS
-    val shown = if (onSignedTab) signedDocs else drafts
+    val tab = state.homeTab
+    val shown = state.docsFor(tab)
+    val onSignedTab = tab != HomeTab.RASCUNHOS
     var selection by rememberSaveable { mutableStateOf(listOf<String>()) }
-    val signedIds = signedDocs.map { it.id }
-    val selected = if (onSignedTab) selection.filter { it in signedIds } else emptyList()
+    val signedIds = if (onSignedTab) shown.map { it.id } else emptyList()
+    val selected = selection.filter { it in signedIds }
     val selecting = selected.isNotEmpty()
     fun toggle(r: RecentDocument) {
         if (!r.signed) return
@@ -94,13 +94,14 @@ fun HomeScreen(vm: AppViewModel, state: AppUiState) {
     fun shareSelected() {
         val ids = selected
         scope.launch {
-            val files = vm.signedFiles(ids)
-            if (files.isEmpty()) {
+            val found = vm.signedFiles(ids)
+            if (found.isEmpty()) {
                 vm.message("Os arquivos selecionados não estão mais neste aparelho.")
                 return@launch
             }
-            if (files.size < ids.size) vm.message("${ids.size - files.size} arquivo(s) não encontrado(s) ficaram de fora.")
-            ShareLauncher.shareAll(context, files)
+            if (found.size < ids.size) vm.message("${ids.size - found.size} arquivo(s) não encontrado(s) ficaram de fora.")
+            // escolher um app no menu marca os documentos como despachados
+            ShareLauncher.shareAll(context, found.map { it.second }, onChosen = DispatchTracking.sender(context, found.map { it.first }))
             selection = emptyList()
         }
     }
@@ -190,17 +191,20 @@ fun HomeScreen(vm: AppViewModel, state: AppUiState) {
                 if (state.recents.isNotEmpty()) {
                     item {
                         AbasDocumentos(
-                            atual = state.homeTab,
-                            assinados = signedDocs.size,
-                            rascunhos = drafts.size,
-                            onChange = { tab -> selection = emptyList(); vm.setHomeTab(tab) },
+                            atual = tab,
+                            contagem = HomeTab.entries.associateWith { state.docsFor(it).size },
+                            onChange = { t -> selection = emptyList(); vm.setHomeTab(t) },
                             modifier = Modifier.padding(top = 16.dp),
                         )
                     }
                     if (shown.isEmpty()) {
                         item {
                             Text(
-                                if (onSignedTab) "Nenhum documento assinado ainda." else "Nenhum rascunho. Os PDFs abertos e ainda não assinados aparecem aqui.",
+                                when (tab) {
+                                    HomeTab.ASSINADOS -> "Nenhum documento assinado à espera de envio."
+                                    HomeTab.RASCUNHOS -> "Nenhum rascunho. Os PDFs abertos e ainda não assinados aparecem aqui."
+                                    HomeTab.DESPACHADOS -> "Nenhum documento despachado. Os assinados vêm para cá quando você os salva ou escolhe um app para compartilhar."
+                                },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = colors.textoSuave,
                                 modifier = Modifier.padding(vertical = 8.dp),
@@ -232,9 +236,17 @@ fun HomeScreen(vm: AppViewModel, state: AppUiState) {
                                 Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(r.signedFileName ?: r.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(dateFmt.format(Date(r.openedAtMs)), style = MaterialTheme.typography.bodySmall, color = colors.textoSuave)
+                                    Text(
+                                        r.dispatchedAtMs?.let { "Despachado em " + dateFmt.format(Date(it)) } ?: dateFmt.format(Date(r.openedAtMs)),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colors.textoSuave,
+                                    )
                                 }
-                                if (r.signed) Selo("Assinado", destaque = true) else Selo("Em edição")
+                                when {
+                                    r.dispatchedAtMs != null -> Selo("Despachado")
+                                    r.signed -> Selo("Assinado", destaque = true)
+                                    else -> Selo("Em edição")
+                                }
                             }
                             HorizontalDivider(color = colors.linha)
                         }
@@ -260,10 +272,11 @@ fun HomeScreen(vm: AppViewModel, state: AppUiState) {
     }
 }
 
-/** Seletor entre PDFs assinados e rascunhos, no estilo segmentado do design system. */
+/** Seletor entre assinados, rascunhos e despachados, no estilo segmentado do design system. */
 @Composable
-private fun AbasDocumentos(atual: HomeTab, assinados: Int, rascunhos: Int, onChange: (HomeTab) -> Unit, modifier: Modifier = Modifier) {
+private fun AbasDocumentos(atual: HomeTab, contagem: Map<HomeTab, Int>, onChange: (HomeTab) -> Unit, modifier: Modifier = Modifier) {
     val colors = BkmTheme.colors
+    val nomes = mapOf(HomeTab.ASSINADOS to "Assinados", HomeTab.RASCUNHOS to "Rascunhos", HomeTab.DESPACHADOS to "Despachados")
     Row(
         modifier
             .fillMaxWidth()
@@ -272,17 +285,22 @@ private fun AbasDocumentos(atual: HomeTab, assinados: Int, rascunhos: Int, onCha
             .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        for ((tab, label) in listOf(HomeTab.ASSINADOS to "Assinados ($assinados)", HomeTab.RASCUNHOS to "Rascunhos ($rascunhos)")) {
+        for (tab in HomeTab.entries) {
             val ativo = tab == atual
-            Box(
+            val cor = if (ativo) colors.sobreAcao else colors.texto
+            Column(
                 Modifier
                     .weight(1f)
-                    .heightIn(min = 40.dp)
+                    .heightIn(min = 48.dp)
                     .background(if (ativo) colors.acao else Color.Transparent, RoundedCornerShape(8.dp))
-                    .selectable(selected = ativo, role = Role.Tab, onClick = { onChange(tab) }),
-                contentAlignment = Alignment.Center,
+                    .selectable(selected = ativo, role = Role.Tab, onClick = { onChange(tab) })
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
             ) {
-                Text(label, style = MaterialTheme.typography.labelLarge, color = if (ativo) colors.sobreAcao else colors.texto, maxLines = 1)
+                // nome e contagem em duas linhas: três abas cabem na largura de um celular
+                Text(nomes.getValue(tab), style = MaterialTheme.typography.labelLarge, color = cor, maxLines = 1)
+                Text("${contagem[tab] ?: 0}", style = MaterialTheme.typography.labelSmall, color = cor, maxLines = 1)
             }
         }
     }

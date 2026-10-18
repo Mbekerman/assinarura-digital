@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import br.com.bkm.assinapdf.pdf.engine.PdfVerification
+import br.com.bkm.assinapdf.sharing.DispatchTracking
 import br.com.bkm.assinapdf.sharing.ShareLauncher
 import br.com.bkm.assinapdf.ui.AppUiState
 import br.com.bkm.assinapdf.ui.AppViewModel
@@ -46,10 +47,16 @@ fun OutputScreen(vm: AppViewModel, state: AppUiState) {
     val out = state.output ?: return
     val context = LocalContext.current
     val colors = BkmTheme.colors
+    // só o PDF assinado conta como despachado; rascunho não
+    val dispatchIds = if (out.signed) listOfNotNull(out.documentId) else emptyList()
+    val nextDraft = state.nextDraftAfter(out.documentId)
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         if (uri != null) {
             runCatching { ShareLauncher.copyTo(context, out.file, uri) }
-                .onSuccess { vm.message("PDF salvo.") }
+                .onSuccess {
+                    vm.markDispatched(dispatchIds)
+                    vm.message("PDF salvo.")
+                }
                 .onFailure { vm.message("Não foi possível salvar no local escolhido.") }
         }
     }
@@ -84,7 +91,18 @@ fun OutputScreen(vm: AppViewModel, state: AppUiState) {
             Aviso("Este arquivo NÃO tem assinatura digital. Use apenas para conferência.", alerta = true)
         }
         Spacer(Modifier.height(8.dp))
-        BotaoPrincipal("Compartilhar", onClick = { ShareLauncher.share(context, out.file) }, icon = BkmIcons.Compartilhar, modifier = Modifier.fillMaxWidth())
+        BotaoPrincipal(
+            "Compartilhar",
+            onClick = {
+                val onChosen = dispatchIds.takeIf { it.isNotEmpty() }?.let { DispatchTracking.sender(context, it) }
+                ShareLauncher.share(context, out.file, onChosen = onChosen)
+            },
+            icon = BkmIcons.Compartilhar,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (nextDraft != null) {
+            BotaoContorno("Próximo", onClick = { vm.resume(nextDraft) }, icon = BkmIcons.Proximo, modifier = Modifier.fillMaxWidth())
+        }
         BotaoContorno("Salvar PDF", onClick = { saver.launch(out.file.name) }, icon = BkmIcons.Salvar, modifier = Modifier.fillMaxWidth())
         BotaoContorno(
             if (out.signed) "Abrir PDF assinado" else "Abrir rascunho",

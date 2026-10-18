@@ -51,9 +51,12 @@ Sem Android SDK, o `settings.gradle.kts` ignora o módulo `:app` e compila só o
 4. O painel do carimbo selecionado tem tamanho em % e mm, ângulo exato, giro de 90°, duplicar,
    caber na folha, restaurar padrão e aplicar a rotação a todos.
 5. Toque em **Assinar**, autorize no SafeID e use **Compartilhar** para enviar pelo WhatsApp.
-6. Na tela inicial, a lista (até 30 documentos) separa **Assinados** e **Rascunhos**. Em
-   Assinados, toque e segure um PDF para entrar na seleção; toque nos outros para marcá-los e use
-   **Compartilhar** para enviar todos de uma vez.
+6. Na tela inicial, a lista (até 30 documentos) tem três abas: **Assinados** (à espera de envio),
+   **Rascunhos** e **Despachados**. Um assinado passa a despachado quando é salvo ou quando você
+   escolhe um app no menu de compartilhar (o Android não informa se a mensagem foi enviada). Nas
+   abas de assinados e despachados, toque e segure um PDF para entrar na seleção; toque nos outros
+   para marcá-los e use **Compartilhar** para enviar todos de uma vez.
+   Depois de assinar, o botão **Próximo** abre o rascunho seguinte, se houver.
 7. No editor, as setas nas laterais abrem o rascunho anterior ou o próximo, na ordem da aba
    Rascunhos; os carimbos do atual ficam salvos.
 
@@ -163,8 +166,8 @@ Microsoft e não está no APK; o app usa a sans do sistema, como prevê o própr
 | `core:stamps` | 34 | Formatos A0–A4 (Teste B), rotações de página e carimbo, CropBox, UserUnit, colocação no PDF igual à prévia (Teste D), zoom sem efeito no tamanho (Teste G), redimensionamento proporcional (Teste C), inserção múltipla e páginas diferentes (Testes E e F), desfazer/refazer, limites |
 | `core:signing` | 17 | PKCE (RFC 7636), URL de autorização, troca de código, descoberta, assinatura, erros (401, 500, JSON inválido, sem rede), CMS PAdES, adulteração, certificado vencido |
 | `verify:pdf-jvm` | 9 | PDF exportado: largura física por formato, matrizes e pixels por rotação, dez carimbos, páginas mistas, conteúdo vetorial preservado (Teste H), assinatura válida, adulteração, PDF já assinado |
-| `app` (unitário) | 2 | Nomes de arquivo de saída |
-| `app` (instrumentado, emulador no CI) | 5 | Compartilhamento abre o editor (Teste A), onNewIntent, dez duplos toques e pinça (Testes E e G), seleção de vários PDFs assinados e envio único, setas entre rascunhos |
+| `app` (unitário) | 4 | Nomes de arquivo de saída, abas e próximo rascunho |
+| `app` (instrumentado, emulador no CI) | 8 | Compartilhamento abre o editor (Teste A), onNewIntent, dez duplos toques e pinça (Testes E e G), seleção de vários PDFs assinados e envio único, setas entre rascunhos, carimbo visível em PDF já assinado (pdfbox-android), aba Despachados e botão Próximo |
 
 Os PDFs gerados pelos testes da JVM ficam no artefato `pdfs-de-teste` do CI.
 

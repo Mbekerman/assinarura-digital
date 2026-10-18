@@ -58,7 +58,16 @@ import java.util.Locale
 enum class Screen { HOME, EDITOR, OUTPUT, SETTINGS }
 
 /** Abas da lista de documentos na tela inicial. */
-enum class HomeTab { ASSINADOS, RASCUNHOS }
+enum class HomeTab {
+    /** Assinados e ainda não salvos nem compartilhados. */
+    ASSINADOS,
+
+    /** Abertos e ainda não assinados. */
+    RASCUNHOS,
+
+    /** Assinados e já salvos ou entregues a um app pelo compartilhamento. */
+    DESPACHADOS,
+}
 
 data class OpenDocument(val session: EditingSession, val info: PdfInfo)
 
@@ -73,6 +82,8 @@ sealed interface SignUi {
 /** Arquivo produzido: PDF assinado (verificado) ou rascunho sem assinatura. */
 data class OutputUi(
     val file: File,
+    /** Documento de origem, para marcar como despachado e achar o próximo rascunho. */
+    val documentId: String?,
     val signed: Boolean,
     val holder: String?,
     val time: String?,
@@ -101,6 +112,25 @@ data class AppUiState(
 ) {
     /** Rascunhos (documentos não assinados) na ordem da aba "Rascunhos". */
     val draftIds: List<String> get() = recents.filterNot { it.signed }.map { it.id }
+
+    /** Documentos de cada aba, na ordem da lista de recentes. */
+    fun docsFor(tab: HomeTab): List<RecentDocument> = recents.filter {
+        when (tab) {
+            HomeTab.ASSINADOS -> it.signed && it.dispatchedAtMs == null
+            HomeTab.RASCUNHOS -> !it.signed
+            HomeTab.DESPACHADOS -> it.signed && it.dispatchedAtMs != null
+        }
+    }
+
+    /**
+     * Próximo rascunho depois de [documentId] na lista; se não houver depois, o primeiro rascunho.
+     * Nulo se não houver nenhum outro rascunho.
+     */
+    fun nextDraftAfter(documentId: String?): String? {
+        val i = recents.indexOfFirst { it.id == documentId }
+        return recents.drop(i + 1).firstOrNull { !it.signed && it.id != documentId }?.id
+            ?: recents.firstOrNull { !it.signed && it.id != documentId }?.id
+    }
 
     /** Rascunho vizinho do documento aberto: [step] = -1 anterior, +1 próximo. */
     fun adjacentDraft(step: Int): String? {
@@ -224,7 +254,7 @@ class AppViewModel(private val c: AppContainer) : ViewModel() {
                 _state.update {
                     it.copy(
                         screen = Screen.OUTPUT,
-                        output = OutputUi(File(session.signedPath!!), signed = true, holder = null, time = null, issuer = null, verification = null),
+                        output = OutputUi(File(session.signedPath!!), documentId, signed = true, holder = null, time = null, issuer = null, verification = null),
                     )
                 }
                 return@launch
@@ -260,8 +290,14 @@ class AppViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     /** PDFs assinados dos documentos [ids] que ainda existem no aparelho, na mesma ordem. */
-    suspend fun signedFiles(ids: List<String>): List<File> = ids.mapNotNull { id ->
-        c.sessions.load(id)?.signedPath?.let(::File)?.takeIf { it.exists() }
+    suspend fun signedFiles(ids: List<String>): List<Pair<String, File>> = ids.mapNotNull { id ->
+        c.sessions.load(id)?.signedPath?.let(::File)?.takeIf { it.exists() }?.let { id to it }
+    }
+
+    /** Marca como despachados (PDF assinado salvo ou entregue a um app). */
+    fun markDispatched(ids: Collection<String>) {
+        if (ids.isEmpty()) return
+        viewModelScope.launch { c.settings.markDispatched(ids) }
     }
 
     private suspend fun openSession(session: EditingSession) {
@@ -429,7 +465,7 @@ class AppViewModel(private val c: AppContainer) : ViewModel() {
                         loading = null,
                         screen = Screen.OUTPUT,
                         document = it.document?.copy(session = session),
-                        output = OutputUi(out, signed = false, holder = null, time = now, issuer = null, verification = null),
+                        output = OutputUi(out, doc.session.documentId, signed = false, holder = null, time = now, issuer = null, verification = null),
                     )
                 }
             } catch (e: Exception) {
@@ -559,7 +595,7 @@ class AppViewModel(private val c: AppContainer) : ViewModel() {
                 sign = SignUi.Idle,
                 screen = Screen.OUTPUT,
                 document = it.document?.copy(session = session),
-                output = OutputUi(outcome.file, signed = true, holder = outcome.holderName, time = outcome.signingTimeText, issuer = outcome.issuer, verification = outcome.verification),
+                output = OutputUi(outcome.file, session.documentId, signed = true, holder = outcome.holderName, time = outcome.signingTimeText, issuer = outcome.issuer, verification = outcome.verification),
             )
         }
     }

@@ -78,6 +78,11 @@
             </intent-filter>
         </activity>
 
+        <!-- escolha do app no menu de compartilhar: marca o documento como despachado -->
+        <receiver
+            android:name=".sharing.ShareChosenReceiver"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"
