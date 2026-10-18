@@ -38,7 +38,13 @@ object IncomingIntents {
         }
     }
 
-    private fun isRedirect(data: Uri, redirectUri: String): Boolean {
+    /** Endereço usado pela página de retorno quando o App Link não abre o app sozinho. */
+    const val FALLBACK_REDIRECT = "assinapdf://oauth/callback"
+
+    private fun isRedirect(data: Uri, redirectUri: String): Boolean =
+        matches(data, redirectUri) || matches(data, FALLBACK_REDIRECT)
+
+    private fun matches(data: Uri, redirectUri: String): Boolean {
         val expected = Uri.parse(redirectUri)
         return data.scheme.equals(expected.scheme, ignoreCase = true) &&
             data.host.equals(expected.host, ignoreCase = true) &&

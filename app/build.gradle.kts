@@ -16,7 +16,9 @@ fun cfg(key: String, default: String = ""): String =
     (System.getenv(key.uppercase().replace('.', '_')) ?: localConfig.getProperty(key) ?: default).trim()
 fun quoted(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
-val redirectUri = cfg("safeid.redirectUri", "assinapdf://oauth/callback")
+// Retorno HTTPS publicado na Railway (projeto "AssinaPDF retorno"); o painel do SafeID não aceita
+// esquemas próprios como assinapdf://. O Android abre o app direto por App Link verificado.
+val redirectUri = cfg("safeid.redirectUri", "https://retorno-production.up.railway.app/oauth/callback")
 val redirectScheme = redirectUri.substringBefore("://")
 val redirectHost = redirectUri.substringAfter("://").substringBefore("/")
 val redirectPath = "/" + redirectUri.substringAfter("://").substringAfter("/", "")

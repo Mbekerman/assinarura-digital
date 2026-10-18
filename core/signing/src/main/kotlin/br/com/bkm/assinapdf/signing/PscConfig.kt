@@ -15,7 +15,7 @@ data class PscConfig(
     val baseUrl: String,
     /** client_id da aplicação cadastrada no painel de integração. Não é segredo. */
     val clientId: String,
-    /** URI de retorno cadastrada no painel; o app captura `assinapdf://oauth/callback` por padrão. */
+    /** URI de retorno cadastrada no painel (HTTPS; o app a abre por App Link). */
     val redirectUri: String = DEFAULT_REDIRECT_URI,
     /** Escopo pedido na autorização. "signature_session" permite várias assinaturas durante [lifetimeSeconds]. */
     val scope: String = "signature_session",

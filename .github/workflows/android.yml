@@ -29,8 +29,23 @@ jobs:
       - name: Testes JVM (geometria, assinatura PAdES, motor de PDF)
         run: ./gradlew --no-daemon :core:stamps:test :core:signing:test :verify:pdf-jvm:test
 
+      - name: Preparar chave fixa de assinatura
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/assinapdf-release.p12"
+            echo "RELEASE_STOREFILE=$RUNNER_TEMP/assinapdf-release.p12" >> "$GITHUB_ENV"
+            echo "Chave fixa configurada."
+          else
+            echo "Sem RELEASE_KEYSTORE_BASE64: o APK de release usa a chave de debug e não será publicado."
+          fi
+
       - name: APK e testes unitários do app
         env:
+          RELEASE_STOREPASSWORD: ${{ secrets.RELEASE_STOREPASSWORD }}
+          RELEASE_KEYALIAS: ${{ secrets.RELEASE_KEYALIAS }}
+          RELEASE_KEYPASSWORD: ${{ secrets.RELEASE_KEYPASSWORD }}
           # Opcional: credenciais do SafeID Integração como segredos do repositório.
           SAFEID_BASEURL: ${{ secrets.SAFEID_BASEURL }}
           SAFEID_CLIENTID: ${{ secrets.SAFEID_CLIENTID }}
@@ -109,7 +124,23 @@ jobs:
         with:
           name: assinapdf-apk
           path: apk
+      - name: Conferir a chave do APK
+        id: chave
+        env:
+          # Impressão digital SHA-256 da chave fixa; a mesma está no assetlinks.json da Railway.
+          ESPERADA: "9A:C8:BB:93:B4:37:99:48:82:41:CF:7F:AD:EC:00:9C:08:8F:A5:C0:96:32:92:9C:EB:AC:48:47:13:8E:F4:67"
+        run: |
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          ATUAL=$("$APKSIGNER" verify --print-certs apk/release/app-release.apk | grep -m1 "SHA-256 digest" | awk '{print $NF}' | tr 'a-f' 'A-F' | sed 's/../&:/g; s/:$//')
+          echo "Chave do APK: $ATUAL"
+          if [ "$ATUAL" = "$ESPERADA" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::APK não assinado com a chave fixa (configure os segredos RELEASE_*). Release não atualizado."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Atualizar o Release "apk-teste"
+        if: steps.chave.outputs.ok == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}

@@ -55,8 +55,8 @@
                 <data android:mimeType="application/pdf" />
             </intent-filter>
 
-            <!-- Retorno da autorização do certificado (OAuth2) -->
-            <intent-filter>
+            <!-- Retorno da autorização do certificado (OAuth2): App Link HTTPS verificado -->
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -64,6 +64,17 @@
                     android:host="${redirectHost}"
                     android:path="${redirectPath}"
                     android:scheme="${redirectScheme}" />
+            </intent-filter>
+
+            <!-- Plano B: a página de retorno devolve o código por este esquema se o App Link não abrir o app -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="oauth"
+                    android:path="/callback"
+                    android:scheme="assinapdf" />
             </intent-filter>
         </activity>
 
