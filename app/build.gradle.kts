@@ -41,7 +41,7 @@ android {
         buildConfigField("String", "SAFEID_CLIENT_ID", quoted(cfg("safeid.clientId", "assinapdf-rixiycui")))
         buildConfigField("String", "SAFEID_REDIRECT_URI", quoted(redirectUri))
         buildConfigField("String", "SAFEID_SCOPE", quoted(cfg("safeid.scope", "signature_session")))
-        buildConfigField("int", "SAFEID_LIFETIME", cfg("safeid.lifetime", "86400").toIntOrNull()?.toString() ?: "86400")
+        buildConfigField("int", "SAFEID_LIFETIME", cfg("safeid.lifetime", "604800").toIntOrNull()?.toString() ?: "604800")
         buildConfigField("String", "SAFEID_TOKEN_MODE", quoted(cfg("safeid.tokenMode", "BROKER")))
         buildConfigField("String", "SAFEID_BROKER_URL", quoted(cfg("safeid.brokerUrl", "https://retorno-production.up.railway.app")))
         buildConfigField("String", "SAFEID_BROKER_KEY", quoted(cfg("safeid.brokerKey")))

@@ -17,7 +17,7 @@ data class PscConfig(
     /** Escopo pedido na autorização. "signature_session" permite várias assinaturas durante [lifetimeSeconds]. */
     val scope: String = "signature_session",
     /** Validade pedida para o token, em segundos. O SafeID limita a 7 dias para pessoa física; sem o parâmetro, 5 minutos. */
-    val lifetimeSeconds: Int = 86_400,
+    val lifetimeSeconds: Int = 604_800,
     /** Como trocar o código de autorização pelo token. */
     val tokenMode: TokenMode = TokenMode.BROKER,
     /** URL do serviço intermediário mínimo (server/retorno), quando [tokenMode] = BROKER. */

@@ -108,7 +108,7 @@ A integração segue a documentação oficial do SafeID (`https://pscsafeweb.saf
 e já tem padrões no build: URL base
 `https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth`, `client_id`
 `assinapdf-rixiycui`, retorno `https://retorno-production.up.railway.app/oauth/callback`,
-escopo `signature_session` e validade de 24 h. Detalhes em [docs/SAFEID.md](docs/SAFEID.md).
+escopo `signature_session` e validade de 7 dias. Detalhes em [docs/SAFEID.md](docs/SAFEID.md).
 
 O único valor que não fica no repositório é a chave de acesso ao serviço intermediário, que entra
 no build pelo segredo do GitHub `SAFEID_BROKERKEY` (ou `safeid.brokerKey` em

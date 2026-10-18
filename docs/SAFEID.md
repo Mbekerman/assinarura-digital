@@ -59,10 +59,11 @@ tocar em **Voltar ao AssinaPDF**.
 
 ## Validade do token
 
-O app pede `lifetime=86400` (24 h) com escopo `signature_session`: uma autorização vale para
-várias assinaturas no mesmo dia. O token fica cifrado no Keystore e é apagado ao vencer. Dá para
-pedir até 7 dias (`safeid.lifetime=604800`), mas, nesse período, quem tiver o celular
-desbloqueado assina sem nova aprovação no SafeID.
+O app pede `lifetime=604800` (7 dias, o máximo para pessoa física) com escopo
+`signature_session`: uma autorização vale para várias assinaturas durante a semana. O token fica
+cifrado no Keystore e é apagado ao vencer; se o PSC recusá-lo antes, o app pede nova autorização.
+Escolha consciente: nesse período, quem tiver o celular desbloqueado assina sem nova aprovação no
+SafeID. Para reduzir, gere o APK com `safeid.lifetime` menor.
 
 ## Como testar a assinatura real
 
