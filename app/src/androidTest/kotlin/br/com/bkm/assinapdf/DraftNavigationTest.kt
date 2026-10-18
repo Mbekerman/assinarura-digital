@@ -5,6 +5,8 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -55,7 +57,8 @@ class DraftNavigationTest {
             compose.onNode(hasScrollAction()).performScrollToNode(hasText("Rascunhos", substring = true))
             compose.onNodeWithText("Rascunhos", substring = true).performClick()
             compose.onNode(hasScrollAction()).performScrollToNode(hasText("rascunho_b.pdf"))
-            compose.onNodeWithText("rascunho_b.pdf").performClick()
+            // aparece também no cartão "Continuar edição"; os dois abrem o mesmo rascunho
+            compose.onAllNodesWithText("rascunho_b.pdf").onFirst().performClick()
             compose.waitUntil(15_000) { state().screen == Screen.EDITOR && state().document?.session?.documentId == "draft-b" && state().loading == null }
 
             // primeiro da lista: só há seta para o próximo
