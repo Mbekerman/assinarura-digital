@@ -101,6 +101,6 @@ class SettingsRepository(private val context: Context) {
     }
 
     companion object {
-        const val MAX_RECENTS = 12
+        const val MAX_RECENTS = 30
     }
 }

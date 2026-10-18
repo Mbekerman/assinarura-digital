@@ -152,6 +152,22 @@ fun EditorScreen(vm: AppViewModel, state: AppUiState) {
                 FloatingTool(BkmIcons.AjustarLargura, "Ajustar à largura") { vm.fitWidth() }
                 FloatingTool(BkmIcons.AjustarPagina, "Ajustar à página") { vm.fitPage() }
             }
+            // Setas laterais: rascunho anterior/próximo, na ordem da aba "Rascunhos"
+            val navigable = state.sign is SignUi.Idle || state.sign is SignUi.Failed
+            val drafts = state.draftIds
+            val position = drafts.indexOf(doc.session.documentId)
+            if (navigable && position >= 0) {
+                state.adjacentDraft(-1)?.let {
+                    Box(Modifier.align(Alignment.CenterStart).padding(start = 8.dp)) {
+                        FloatingTool(BkmIcons.Anterior, "Rascunho anterior (${position} de ${drafts.size})") { vm.openAdjacentDraft(-1) }
+                    }
+                }
+                state.adjacentDraft(1)?.let {
+                    Box(Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)) {
+                        FloatingTool(BkmIcons.Proximo, "Próximo rascunho (${position + 2} de ${drafts.size})") { vm.openAdjacentDraft(1) }
+                    }
+                }
+            }
         }
 
         val selected = state.sheet.selected

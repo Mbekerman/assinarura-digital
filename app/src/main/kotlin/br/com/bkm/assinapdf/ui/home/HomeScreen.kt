@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -23,6 +24,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -43,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,6 +55,7 @@ import br.com.bkm.assinapdf.data.RecentDocument
 import br.com.bkm.assinapdf.sharing.ShareLauncher
 import br.com.bkm.assinapdf.ui.AppUiState
 import br.com.bkm.assinapdf.ui.AppViewModel
+import br.com.bkm.assinapdf.ui.HomeTab
 import br.com.bkm.assinapdf.ui.components.Aviso
 import br.com.bkm.assinapdf.ui.components.BotaoLink
 import br.com.bkm.assinapdf.ui.components.BotaoPrincipal
@@ -74,15 +79,16 @@ fun HomeScreen(vm: AppViewModel, state: AppUiState) {
     val scope = rememberCoroutineScope()
 
     // Seleção de PDFs assinados para compartilhar juntos (toque longo, como na galeria)
+    val signedDocs = state.recents.filter { it.signed }
+    val drafts = state.recents.filterNot { it.signed }
+    val onSignedTab = state.homeTab == HomeTab.ASSINADOS
+    val shown = if (onSignedTab) signedDocs else drafts
     var selection by rememberSaveable { mutableStateOf(listOf<String>()) }
-    val signedIds = state.recents.filter { it.signed }.map { it.id }
-    val selected = selection.filter { it in signedIds }
+    val signedIds = signedDocs.map { it.id }
+    val selected = if (onSignedTab) selection.filter { it in signedIds } else emptyList()
     val selecting = selected.isNotEmpty()
     fun toggle(r: RecentDocument) {
-        if (!r.signed) {
-            vm.message("Só documentos assinados podem ser selecionados para compartilhar.")
-            return
-        }
+        if (!r.signed) return
         selection = if (r.id in selected) selected - r.id else selected + r.id
     }
     fun shareSelected() {
@@ -182,8 +188,26 @@ fun HomeScreen(vm: AppViewModel, state: AppUiState) {
                     }
                 }
                 if (state.recents.isNotEmpty()) {
-                    item { Rotulo("Recentes", Modifier.padding(top = 16.dp)) }
-                    items(state.recents, key = { it.id }) { r ->
+                    item {
+                        AbasDocumentos(
+                            atual = state.homeTab,
+                            assinados = signedDocs.size,
+                            rascunhos = drafts.size,
+                            onChange = { tab -> selection = emptyList(); vm.setHomeTab(tab) },
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
+                    }
+                    if (shown.isEmpty()) {
+                        item {
+                            Text(
+                                if (onSignedTab) "Nenhum documento assinado ainda." else "Nenhum rascunho. Os PDFs abertos e ainda não assinados aparecem aqui.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = colors.textoSuave,
+                                modifier = Modifier.padding(vertical = 8.dp),
+                            )
+                        }
+                    }
+                    items(shown, key = { it.id }) { r ->
                         val isSelected = r.id in selected
                         Column {
                             Row(
@@ -192,8 +216,8 @@ fun HomeScreen(vm: AppViewModel, state: AppUiState) {
                                     .background(if (isSelected) colors.superficieElevada else Color.Transparent, RoundedCornerShape(12.dp))
                                     .combinedClickable(
                                         onClickLabel = if (selecting) "Marcar ou desmarcar" else "Abrir",
-                                        onLongClickLabel = "Selecionar para compartilhar",
-                                        onLongClick = { toggle(r) },
+                                        onLongClickLabel = if (r.signed) "Selecionar para compartilhar" else null,
+                                        onLongClick = if (r.signed) ({ toggle(r) }) else null,
                                         onClick = { if (selecting) toggle(r) else vm.resume(r.id) },
                                     )
                                     .semantics { this.selected = isSelected }
@@ -231,6 +255,34 @@ fun HomeScreen(vm: AppViewModel, state: AppUiState) {
                     icon = BkmIcons.Compartilhar,
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp),
                 )
+            }
+        }
+    }
+}
+
+/** Seletor entre PDFs assinados e rascunhos, no estilo segmentado do design system. */
+@Composable
+private fun AbasDocumentos(atual: HomeTab, assinados: Int, rascunhos: Int, onChange: (HomeTab) -> Unit, modifier: Modifier = Modifier) {
+    val colors = BkmTheme.colors
+    Row(
+        modifier
+            .fillMaxWidth()
+            .border(1.dp, colors.bordaControle, RoundedCornerShape(12.dp))
+            .padding(4.dp)
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        for ((tab, label) in listOf(HomeTab.ASSINADOS to "Assinados ($assinados)", HomeTab.RASCUNHOS to "Rascunhos ($rascunhos)")) {
+            val ativo = tab == atual
+            Box(
+                Modifier
+                    .weight(1f)
+                    .heightIn(min = 40.dp)
+                    .background(if (ativo) colors.acao else Color.Transparent, RoundedCornerShape(8.dp))
+                    .selectable(selected = ativo, role = Role.Tab, onClick = { onChange(tab) }),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(label, style = MaterialTheme.typography.labelLarge, color = if (ativo) colors.sobreAcao else colors.texto, maxLines = 1)
             }
         }
     }

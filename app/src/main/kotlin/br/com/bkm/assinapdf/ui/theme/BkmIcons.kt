@@ -49,6 +49,8 @@ object BkmIcons {
 
     val Voltar = icon("voltar") { moveTo(19f, 12f); lineTo(5f, 12f); moveTo(11f, 6f); lineTo(5f, 12f); lineTo(11f, 18f) }
     val Seta = icon("seta") { moveTo(4f, 12f); lineTo(19f, 12f); moveTo(13f, 6f); lineTo(19f, 12f); lineTo(13f, 18f) }
+    val Anterior = icon("anterior") { moveTo(15f, 5f); lineTo(8f, 12f); lineTo(15f, 19f) }
+    val Proximo = icon("proximo") { moveTo(9f, 5f); lineTo(16f, 12f); lineTo(9f, 19f) }
     val Desfazer = icon("desfazer") {
         moveTo(9f, 14f); lineTo(4f, 9f); lineTo(9f, 4f)
         moveTo(4f, 9f); lineTo(15f, 9f); curveTo(17.76f, 9f, 20f, 11.24f, 20f, 14f); curveTo(20f, 16.76f, 17.76f, 19f, 15f, 19f); lineTo(11f, 19f)

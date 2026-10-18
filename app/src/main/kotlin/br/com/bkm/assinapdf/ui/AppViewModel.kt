@@ -57,6 +57,9 @@ import java.util.Locale
 
 enum class Screen { HOME, EDITOR, OUTPUT, SETTINGS }
 
+/** Abas da lista de documentos na tela inicial. */
+enum class HomeTab { ASSINADOS, RASCUNHOS }
+
 data class OpenDocument(val session: EditingSession, val info: PdfInfo)
 
 sealed interface SignUi {
@@ -87,6 +90,7 @@ data class AppUiState(
     val currentPage: Int = 0,
     val settings: AppSettings = AppSettings(),
     val recents: List<RecentDocument> = emptyList(),
+    val homeTab: HomeTab = HomeTab.ASSINADOS,
     val resumable: EditingSession? = null,
     val sign: SignUi = SignUi.Idle,
     val output: OutputUi? = null,
@@ -94,7 +98,18 @@ data class AppUiState(
     val signingConfigured: Boolean = false,
     val signingProblem: String? = null,
     val sessionActive: Boolean = false,
-)
+) {
+    /** Rascunhos (documentos não assinados) na ordem da aba "Rascunhos". */
+    val draftIds: List<String> get() = recents.filterNot { it.signed }.map { it.id }
+
+    /** Rascunho vizinho do documento aberto: [step] = -1 anterior, +1 próximo. */
+    fun adjacentDraft(step: Int): String? {
+        val current = document?.session?.documentId ?: return null
+        val drafts = draftIds
+        val i = drafts.indexOf(current)
+        return if (i < 0) null else drafts.getOrNull(i + step)
+    }
+}
 
 sealed interface UiEffect {
     data class OpenUrl(val url: String) : UiEffect
@@ -219,6 +234,31 @@ class AppViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
+    fun setHomeTab(tab: HomeTab) = _state.update { it.copy(homeTab = tab) }
+
+    /**
+     * Troca o documento aberto pelo rascunho vizinho ([step] = -1 anterior, +1 próximo), salvando
+     * antes os carimbos do atual. Se o vizinho não abrir, o documento atual continua aberto.
+     */
+    fun openAdjacentDraft(step: Int) {
+        val st = _state.value
+        val target = st.adjacentDraft(step) ?: return
+        if (st.sign !is SignUi.Idle && st.sign !is SignUi.Failed) return
+        val current = st.document?.session ?: return
+        saveJob?.cancel()
+        viewModelScope.launch {
+            c.sessions.save(current.copy(currentPage = st.currentPage, addMode = st.settings.addMode))
+            val next = c.sessions.load(target)
+            if (next == null) {
+                c.settings.removeRecent(target)
+                effects.trySend(UiEffect.Message("O rascunho não está mais disponível neste aparelho."))
+                return@launch
+            }
+            _state.update { it.copy(loading = "Abrindo rascunho") }
+            openSession(next)
+        }
+    }
+
     /** PDFs assinados dos documentos [ids] que ainda existem no aparelho, na mesma ordem. */
     suspend fun signedFiles(ids: List<String>): List<File> = ids.mapNotNull { id ->
         c.sessions.load(id)?.signedPath?.let(::File)?.takeIf { it.exists() }
@@ -234,13 +274,14 @@ class AppViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     private suspend fun attach(session: EditingSession, info: PdfInfo) {
-        closeRenderer()
+        // abre o novo antes de fechar o atual: se falhar, o documento aberto continua utilizável
         val r = try {
             withContext(Dispatchers.IO) { PdfDocumentRenderer(File(session.localPath), info.pages) }
         } catch (e: Exception) {
             fail("O visualizador do Android não conseguiu exibir este PDF (pode estar protegido ou corrompido).")
             return
         }
+        closeRenderer()
         renderer = r
         layout = DocumentLayout(info.pages)
         viewport = null
