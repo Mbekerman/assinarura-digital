@@ -6,6 +6,8 @@ import br.com.bkm.assinapdf.stamps.StampContent
 import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
+import com.tom_roush.pdfbox.cos.COSObject
+import com.tom_roush.pdfbox.cos.COSUpdateInfo
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary
 import com.tom_roush.pdfbox.pdmodel.interactive.digitalsignature.PDSignature
@@ -169,24 +171,37 @@ object PdfSigner {
         widget.rectangle = placed.rect
         widget.appearance = PDAppearanceDictionary().also { it.setNormalAppearance(placed.appearance) }
         widget.cosObject.setInt(COSName.F, StampPdfWriter.FLAG_PRINT or StampPdfWriter.FLAG_LOCKED)
-        markPathToRoot(doc.getPage(visible.stamp.pageIndex).cosObject)
+        markPathToRoot(doc, doc.getPage(visible.stamp.pageIndex).cosObject)
     }
 
     /**
-     * Na gravação incremental, o pdfbox-android 2.0.27 parte da raiz e só desce por objetos
-     * marcados: se a árvore de páginas não estiver marcada, a página com o novo /Annots (o widget
-     * do carimbo) nunca é regravada e o carimbo não aparece. Marca a página, os nós acima dela e
-     * os /Kids e /Annots no caminho. O Apache PDFBox 2.0.37 dos testes JVM grava mesmo sem isso.
+     * Na gravação incremental, o pdfbox-android 2.0.27 parte da raiz e só desce por referências
+     * marcadas, e confere a marca na referência indireta (COSObject), não no dicionário. Sem isso
+     * a página com o novo /Annots (o widget do carimbo) nunca é regravada e o carimbo não aparece.
+     * Marca a página, os nós acima dela, os /Kids e as referências do caminho até o /Pages do
+     * catálogo. O Apache PDFBox 2.0.37 dos testes JVM grava mesmo sem isso.
      */
-    private fun markPathToRoot(page: COSDictionary) {
+    private fun markPathToRoot(doc: PDDocument, page: COSDictionary) {
         page.setNeedToBeUpdated(true)
+        (page.getItem(COSName.ANNOTS) as? COSUpdateInfo)?.setNeedToBeUpdated(true)
         (page.getDictionaryObject(COSName.ANNOTS) as? COSArray)?.setNeedToBeUpdated(true)
-        var node: COSDictionary? = page.getCOSDictionary(COSName.PARENT)
+        var child = page
+        var parent = page.getCOSDictionary(COSName.PARENT)
         var guard = 0
-        while (node != null && guard++ < 64) {
-            node.setNeedToBeUpdated(true)
-            (node.getDictionaryObject(COSName.KIDS) as? COSArray)?.setNeedToBeUpdated(true)
-            node = node.getCOSDictionary(COSName.PARENT)
+        while (parent != null && guard++ < 64) {
+            parent.setNeedToBeUpdated(true)
+            (parent.getItem(COSName.KIDS) as? COSObject)?.setNeedToBeUpdated(true)
+            val kids = parent.getDictionaryObject(COSName.KIDS) as? COSArray
+            kids?.setNeedToBeUpdated(true)
+            if (kids != null) {
+                for (i in 0 until kids.size()) {
+                    val ref = kids.get(i)
+                    if (ref is COSObject && ref.getObject() === child) ref.setNeedToBeUpdated(true)
+                }
+            }
+            child = parent
+            parent = parent.getCOSDictionary(COSName.PARENT)
         }
+        (doc.documentCatalog.cosObject.getItem(COSName.PAGES) as? COSObject)?.setNeedToBeUpdated(true)
     }
 }
