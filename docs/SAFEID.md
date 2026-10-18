@@ -15,8 +15,8 @@ e, onde indicado, com chamadas reais à API.
 | Token guardado cifrado (AES-GCM, Android Keystore) | Implementado |
 | Assinatura remota de **hash** (RAW, PKCS#1 v1.5) e montagem do CMS/PAdES | Implementado e testado com chave de teste |
 | Verificação local antes de declarar sucesso | Implementado e testado (inclusive adulteração) |
-| **Primeira assinatura real** | **Não executada**: depende da autorização do titular no app SafeID |
-| **Validação no VALIDAR do ITI** | **Não executada**: depende da assinatura real |
+| Assinatura real | Executada no aparelho com certificado A3 em nuvem do titular |
+| Validação no VALIDAR do ITI | Aprovada, inclusive com quatro assinaturas no mesmo PDF; política AD-RB v1.3 dada como válida. Único alerta: filtro `Adobe.PPKLite` em vez de `PBAD_PAdES`, o mesmo de assinaturas de outros emissores |
 
 Nenhuma parte do app simula uma assinatura.
 
@@ -93,8 +93,8 @@ SafeID. Para reduzir, gere o APK com `safeid.lifetime` menor.
 
 ## Como testar a assinatura real
 
-1. Cadastre o segredo `SAFEID_BROKERKEY` no GitHub e rode o CI de novo (o Release `apk-teste` é
-   atualizado).
+1. Com os segredos do GitHub cadastrados (`RELEASE_KEYSTORE_BASE64`, `RELEASE_STOREPASSWORD`,
+   `SAFEID_BROKERKEY`), o CI atualiza o Release `apk-teste`.
 2. Instale o APK, abra um PDF, posicione os carimbos e toque em **Assinar**.
 3. Autorize no SafeID. O app só mostra "Documento assinado com sucesso" se a verificação local
    confirmar a integridade e o certificado.

@@ -14,8 +14,8 @@ ICP-Brasil A3 em nuvem SafeID (Safeweb). A interface segue o design system BKM.
 | Modo "Adicionar assinaturas" com duplo toque contínuo | Implementado; teste instrumentado |
 | Exportação com carimbos vetoriais, sem rasterizar a página | Implementado; testes com renderização |
 | Rascunho sem assinatura, identificado como tal | Implementado |
-| Assinatura PAdES montada pelo app sobre hash assinado pelo PSC | Implementado; testado com chave de teste |
-| Integração SafeID real | API confirmada na documentação oficial e credenciais testadas no `/token`; falta a primeira assinatura real ([docs/SAFEID.md](docs/SAFEID.md)) |
+| Assinatura PAdES montada pelo app sobre hash assinado pelo PSC | Implementado; testado com chave de teste e com certificado real |
+| Integração SafeID real | Assinaturas reais aprovadas no VALIDAR do ITI, com política AD-RB v1.3 válida ([docs/SAFEID.md](docs/SAFEID.md)) |
 | Compartilhar o PDF final pelo Sharesheet | Implementado |
 
 O APK é compilado pelo GitHub Actions (aba **Actions**, artefato `assinapdf-apk`), que também
@@ -171,13 +171,12 @@ Microsoft e não está no APK; o app usa a sans do sistema, como prevê o própr
 
 Os PDFs gerados pelos testes da JVM ficam no artefato `pdfs-de-teste` do CI.
 
-Pendentes por dependerem do SafeID real ou de aparelho físico: Testes I e J (assinatura real e
-validação no ITI), o compartilhamento real a partir do WhatsApp e o Teste K completo (as falhas
-de API e rede estão cobertas por testes com servidor simulado).
+Testes I e J feitos manualmente em aparelho físico: assinatura real com o SafeID e validação no
+ITI (inclusive PDF com várias assinaturas). O Teste K completo depende de falhas reais do PSC; as
+falhas de API e rede estão cobertas por testes com servidor simulado.
 
 ## Limitações conhecidas
 
-- A assinatura real não foi exercitada; veja [docs/SAFEID.md](docs/SAFEID.md).
 - Sem carimbo de tempo (PAdES B-B). PAdES-T exigiria um servidor TSA.
 - PDFs com senha de abertura não são suportados. PDFs com restrição de alteração são bloqueados
   para assinatura com aviso.
