@@ -4,11 +4,14 @@ import android.app.Activity
 import android.app.Instrumentation
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.core.content.IntentCompat
 import androidx.test.core.app.ActivityScenario
@@ -66,12 +69,22 @@ class ShareSelectedTest {
             // não abre o seletor do sistema; só registra o Intent
             Intents.intending(hasAction(Intent.ACTION_CHOOSER)).respondWith(Instrumentation.ActivityResult(Activity.RESULT_OK, null))
             val main = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_MAIN)
-            ActivityScenario.launch<MainActivity>(main).use {
-                compose.waitUntil(15_000) { compose.onAllNodesWithText("planta_assinado.pdf").fetchSemanticsNodes().isNotEmpty() }
+            ActivityScenario.launch<MainActivity>(main).use { scenario ->
+                compose.waitUntil(15_000) {
+                    var ids = emptyList<String>()
+                    scenario.onActivity { a -> ids = a.appViewModel.state.value.recents.map { it.id } }
+                    ids.containsAll(listOf("sel-a", "sel-b"))
+                }
 
+                // a lista é preguiçosa: em tela pequena os recentes podem estar abaixo da dobra
+                fun scrollTo(text: String) = compose.onNode(hasScrollAction()).performScrollToNode(hasText(text))
+
+                scrollTo("contrato_assinado.pdf")
                 compose.onNodeWithText("contrato_assinado.pdf").performTouchInput { longClick() }
                 compose.onNodeWithText("1 selecionado").assertExists()
+                scrollTo("planta_assinado.pdf")
                 compose.onNodeWithText("planta_assinado.pdf").performClick()
+                scrollTo("2 selecionados")
                 compose.onNodeWithText("2 selecionados").assertExists()
                 compose.onNodeWithText("Compartilhar 2 PDFs").performClick()
 
