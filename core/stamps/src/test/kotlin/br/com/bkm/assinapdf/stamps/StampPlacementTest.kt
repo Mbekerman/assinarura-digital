@@ -111,5 +111,24 @@ class StampPlacementTest {
         }
     }
 
+    @Test
+    fun `desenho na tela e no PDF coincidem ponto a ponto`() {
+        for (rot in listOf(0, 90, 180, 270)) {
+            val page = PageGeometry(0, PdfBox.ofSize(1190.55, 841.89), rotation = rot)
+            for (angle in listOf(0.0, 30.0, 45.0, 90.0, 180.0, 270.0)) {
+                val s = Stamp(pageIndex = 0, centerX = 0.4, centerY = 0.3, widthFraction = 0.2, rotationDeg = angle)
+                val m = StampPlacement.place(s, page).matrix
+                for ((x, y) in listOf(48.0 to 22.0, 150.0 to 1.5, 290.0 to 87.0)) {
+                    val screen = StampPlacement.designToDisplay(s, page, x, y)
+                    // no PDF o desenho tem Y para cima
+                    val (ux, uy) = StampPlacement.apply(m, x, StampPlacement.DESIGN_HEIGHT - y)
+                    val pdf = page.userToDisplay(ux, uy)
+                    assertEquals(screen.first, pdf.first, 1e-6)
+                    assertEquals(screen.second, pdf.second, 1e-6)
+                }
+            }
+        }
+    }
+
     private fun assertClose(a: Double, b: Double) = assert(abs(a - b) < 1e-6) { "$a != $b" }
 }

@@ -75,6 +75,21 @@ object StampPlacement {
         )
     }
 
+    /**
+     * Ponto do desenho (Y para baixo, como em [StampVisual]) para o espaço de exibição da página.
+     * É a mesma transformação que a pré-visualização aplica no Canvas: transladar ao centro,
+     * girar θ no sentido horário e escalar largura/DESIGN_WIDTH.
+     */
+    fun designToDisplay(stamp: Stamp, page: PageGeometry, x: Double, y: Double): Pair<Double, Double> {
+        val (cx, cy) = stamp.centerPt(page)
+        val scale = stamp.widthPt(page) / DESIGN_WIDTH
+        val designH = DESIGN_WIDTH / stamp.aspectRatio
+        val lx = (x - DESIGN_WIDTH / 2) * scale
+        val ly = (y - designH / 2) * scale
+        val rad = Math.toRadians(stamp.rotationDeg)
+        return Pair(cx + lx * cos(rad) - ly * sin(rad), cy + lx * sin(rad) + ly * cos(rad))
+    }
+
     /** Aplica a matriz a um ponto do espaço de desenho; útil em testes e verificações. */
     fun apply(matrix: DoubleArray, x: Double, y: Double): Pair<Double, Double> {
         val (a, b, c, d, e, f) = matrix.toList()
