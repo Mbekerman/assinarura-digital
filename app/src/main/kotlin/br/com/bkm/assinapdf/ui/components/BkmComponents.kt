@@ -1,6 +1,8 @@
 package br.com.bkm.assinapdf.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -115,20 +117,34 @@ fun Selo(text: String, destaque: Boolean = false, modifier: Modifier = Modifier)
     }
 }
 
-/** Aviso em caixa (pêssego com texto marinho para alerta; azul-gelo para informação). */
+/**
+ * Aviso em caixa (pêssego com texto marinho para alerta; azul-gelo para informação).
+ *
+ * Com [sobreposto] = true o aviso é só visual: não usa Surface (que intercepta toques), para que
+ * gestos feitos sobre ele cheguem ao documento que está por baixo.
+ */
 @Composable
-fun Aviso(text: String, alerta: Boolean = false, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
+fun Aviso(
+    text: String,
+    alerta: Boolean = false,
+    modifier: Modifier = Modifier,
+    sobreposto: Boolean = false,
+    action: (@Composable () -> Unit)? = null,
+) {
     val c = BkmTheme.colors
-    Surface(
-        color = if (alerta) MaterialTheme.colorScheme.errorContainer else c.superficieElevada,
-        contentColor = if (alerta) MaterialTheme.colorScheme.onErrorContainer else c.texto,
-        shape = RoundedCornerShape(8.dp),
-        modifier = modifier,
-    ) {
+    val bg = if (alerta) MaterialTheme.colorScheme.errorContainer else c.superficieElevada
+    val fg = if (alerta) MaterialTheme.colorScheme.onErrorContainer else c.texto
+    val shape = RoundedCornerShape(8.dp)
+    val content: @Composable () -> Unit = {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(if (alerta) BkmIcons.Alerta else BkmIcons.Escudo, contentDescription = null, modifier = Modifier.size(20.dp))
-            Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Icon(if (alerta) BkmIcons.Alerta else BkmIcons.Escudo, contentDescription = null, modifier = Modifier.size(20.dp), tint = fg)
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = fg, modifier = Modifier.weight(1f))
             action?.invoke()
         }
+    }
+    if (sobreposto) {
+        Box(modifier.background(bg, shape)) { content() }
+    } else {
+        Surface(color = bg, contentColor = fg, shape = shape, modifier = modifier) { content() }
     }
 }

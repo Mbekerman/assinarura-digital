@@ -18,9 +18,10 @@ ICP-Brasil A3 em nuvem SafeID (Safeweb). A interface segue o design system BKM.
 | Integração SafeID real | **Pendente de credenciais e confirmação da API** ([docs/SAFEID.md](docs/SAFEID.md)) |
 | Compartilhar o PDF final pelo Sharesheet | Implementado |
 
-O APK é compilado pelo GitHub Actions (aba **Actions**, artefato `assinapdf-apk`). O ambiente
-em que o código foi escrito não tinha acesso ao Google Maven, então o app Android não foi
-compilado localmente; os módulos JVM foram compilados e testados localmente.
+O APK é compilado pelo GitHub Actions (aba **Actions**, artefato `assinapdf-apk`), que também
+roda todos os testes JVM, os testes unitários do app e os testes instrumentados num emulador
+Android 14. O ambiente em que o código foi escrito não tinha acesso ao Google Maven; por isso o
+app Android foi compilado e testado apenas no CI, e os módulos JVM também localmente.
 
 ## Instalação
 

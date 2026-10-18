@@ -138,10 +138,11 @@ fun EditorScreen(vm: AppViewModel, state: AppUiState) {
                     Aviso(
                         "Este PDF já tem ${doc.info.existingSignatures} assinatura(s). Os carimbos entram como anotações em uma revisão nova, sem alterar o conteúdo já assinado.",
                         alerta = true,
+                        sobreposto = true,
                     )
                 }
                 if (state.settings.addMode && state.sheet.stamps.isEmpty()) {
-                    Aviso("Toque duas vezes na folha para inserir um carimbo.")
+                    Aviso("Toque duas vezes na folha para inserir um carimbo.", sobreposto = true)
                 }
             }
             Column(
