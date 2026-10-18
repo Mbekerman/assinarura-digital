@@ -3,6 +3,8 @@ package br.com.bkm.assinapdf.pdf.engine
 import br.com.bkm.assinapdf.stamps.PageGeometry
 import br.com.bkm.assinapdf.stamps.Stamp
 import br.com.bkm.assinapdf.stamps.StampContent
+import com.tom_roush.pdfbox.cos.COSArray
+import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary
@@ -135,10 +137,27 @@ object PdfSigner {
                         sign(source, out, metadata, VisibleStamp(stamp, content, style), cmsForDigest)
                         source = out
                     }
+                    checkStampWidgets(output, stamps)
                 }
             }
         } finally {
             temps.forEach { it.delete() }
+        }
+    }
+
+    /** Confere, no arquivo gravado, que cada carimbo virou um widget visível na sua página. */
+    private fun checkStampWidgets(file: File, stamps: List<Stamp>) {
+        PdfInspector.open(file).use { doc ->
+            for ((pageIndex, onPage) in stamps.groupBy { it.pageIndex }) {
+                val visible = doc.getPage(pageIndex).annotations.count { a ->
+                    a.subtype == "Widget" && a.rectangle != null && a.rectangle.width > 0f &&
+                        (a.cosObject.getCOSName(COSName.FT) == COSName.SIG ||
+                            a.cosObject.getCOSDictionary(COSName.PARENT)?.getCOSName(COSName.FT) == COSName.SIG)
+                }
+                if (visible < onPage.size) {
+                    throw IllegalStateException("carimbo não incorporado à página ${pageIndex + 1}")
+                }
+            }
         }
     }
 
@@ -150,5 +169,24 @@ object PdfSigner {
         widget.rectangle = placed.rect
         widget.appearance = PDAppearanceDictionary().also { it.setNormalAppearance(placed.appearance) }
         widget.cosObject.setInt(COSName.F, StampPdfWriter.FLAG_PRINT or StampPdfWriter.FLAG_LOCKED)
+        markPathToRoot(doc.getPage(visible.stamp.pageIndex).cosObject)
+    }
+
+    /**
+     * Na gravação incremental, o pdfbox-android 2.0.27 parte da raiz e só desce por objetos
+     * marcados: se a árvore de páginas não estiver marcada, a página com o novo /Annots (o widget
+     * do carimbo) nunca é regravada e o carimbo não aparece. Marca a página, os nós acima dela e
+     * os /Kids e /Annots no caminho. O Apache PDFBox 2.0.37 dos testes JVM grava mesmo sem isso.
+     */
+    private fun markPathToRoot(page: COSDictionary) {
+        page.setNeedToBeUpdated(true)
+        (page.getDictionaryObject(COSName.ANNOTS) as? COSArray)?.setNeedToBeUpdated(true)
+        var node: COSDictionary? = page.getCOSDictionary(COSName.PARENT)
+        var guard = 0
+        while (node != null && guard++ < 64) {
+            node.setNeedToBeUpdated(true)
+            (node.getDictionaryObject(COSName.KIDS) as? COSArray)?.setNeedToBeUpdated(true)
+            node = node.getCOSDictionary(COSName.PARENT)
+        }
     }
 }

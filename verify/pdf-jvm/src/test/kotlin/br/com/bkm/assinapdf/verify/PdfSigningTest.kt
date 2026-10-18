@@ -130,6 +130,8 @@ class PdfSigningTest {
             assertTrue(annots.none { it.subtype == "Stamp" })
             val visibleWidgets = doc.signatureFields.flatMap { it.widgets }.filter { it.rectangle.width > 0f }
             assertEquals(2, visibleWidgets.size)
+            // e estão no /Annots da página (senão nenhum leitor os desenha)
+            assertEquals(2, annots.count { it.subtype == "Widget" && it.rectangle.width > 0f })
 
             // cada carimbo aparece renderizado no lugar certo
             val page = PdfInspector.inspect(second).pages[0]
