@@ -56,6 +56,16 @@ class DocumentLayoutTest {
         // sem CPF no certificado, a linha some (não inventa)
         assertEquals("", StampContent.final("FULANO", null, "x").cpfLine)
         assertEquals(StampVisual.LOGO_PIXELS_W * StampVisual.LOGO_PIXELS_H, StampVisual.icpLogoAlpha.size)
+        // espaço selo→texto igual ao espaço fim do logo→linha da moldura
+        val sealRight = StampVisual.SEAL_CX + StampVisual.SEAL_R + StampVisual.SEAL_STROKE / 2
+        val borderInner = StampVisual.BORDER_RIGHT - StampVisual.BORDER_WIDTH / 2
+        assertEquals(StampVisual.TEXT_LEFT - sealRight, borderInner - StampVisual.NAME_RIGHT, 0.05)
+        // bloco de texto centrado na vertical: maiúsculas do nome (Helvetica-Bold 0,718) ao rodapé
+        val lines = StampVisual.lines(StampContent.final("MOISES CAPLUM BEKERMAN", "05191421604", "x"))
+        val nameSize = (StampVisual.NAME_RIGHT - StampVisual.TEXT_LEFT) / 14.98
+        val top = lines.first().baseline - 0.718 * nameSize
+        val center = (top + lines.last().baseline) / 2
+        assertEquals((StampVisual.BORDER_TOP + StampVisual.BORDER_BOTTOM) / 2, center, 0.3)
     }
 
     @Test

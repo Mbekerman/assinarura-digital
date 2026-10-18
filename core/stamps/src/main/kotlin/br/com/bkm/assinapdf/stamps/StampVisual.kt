@@ -40,17 +40,29 @@ object StampVisual {
     const val SEAL_R = 29.0
     const val SEAL_STROKE = 3.0
 
-    const val TEXT_LEFT = 84.0
-    const val NAME_RIGHT = 292.0
-    const val TEXT_RIGHT = 254.0
+    /**
+     * Texto e logo deslocados juntos de modo que o espaço entre o anel do selo (borda externa em
+     * 68,5) e o texto seja igual ao espaço entre o fim visível do logo e a linha da moldura (borda
+     * interna em 297): 11,7 dos dois lados.
+     */
+    const val TEXT_LEFT = 80.2
 
-    /** Logo ICP-Brasil à direita, abaixo da linha do nome. */
-    const val LOGO_X = 260.0
-    const val LOGO_Y = 47.0
+    /** Logo ICP-Brasil à direita, ao lado das linhas de CPF, data e rodapé. */
+    const val LOGO_X = 256.2
+    const val LOGO_Y = 43.1
     const val LOGO_W = 30.0
     const val LOGO_PIXELS_W = 67
     const val LOGO_PIXELS_H = 81
+
+    /** Colunas transparentes em cada lado do recorte do logo. */
+    const val LOGO_PAD_PIXELS = 2
     val LOGO_H = LOGO_W * LOGO_PIXELS_H / LOGO_PIXELS_W
+
+    /** Fim visível do logo; o nome termina no mesmo alinhamento. */
+    val NAME_RIGHT = LOGO_X + LOGO_W * (LOGO_PIXELS_W - LOGO_PAD_PIXELS) / LOGO_PIXELS_W
+
+    /** Limite das linhas que ficam ao lado do logo. */
+    const val TEXT_RIGHT = LOGO_X - 3.0
 
     /**
      * Cobertura (alfa, 8 bits, linha a linha a partir do topo) do logo ICP-Brasil, recortado do
@@ -94,10 +106,11 @@ object StampVisual {
 
     /** Símbolo da casa da BKM (o mesmo do app), centralizado no selo. */
     val housePath: List<PathCmd> by lazy {
-        // caixa original 185,959 × 200; altura final 34
+        // caixa original 185,959 × 200; altura final 34. A base pesada põe o centro de área em
+        // y = 118,6; o centro óptico usado fica entre ele e o meio da caixa (100)
         val s = 34.0 / 200.0
         val ox = SEAL_CX - 185.959 * s / 2
-        val oy = SEAL_CY - 200.0 * s / 2
+        val oy = SEAL_CY - HOUSE_OPTICAL_CENTER * s
         fun m(x: Double, y: Double) = PathCmd.MoveTo(ox + x * s, oy + y * s)
         fun l(x: Double, y: Double) = PathCmd.LineTo(ox + x * s, oy + y * s)
         fun c(x1: Double, y1: Double, x2: Double, y2: Double, x: Double, y: Double) =
@@ -113,6 +126,9 @@ object StampVisual {
         )
     }
 
+    /** Centro óptico vertical da casa, nas unidades da caixa original (0 a 200). */
+    const val HOUSE_OPTICAL_CENTER = 109.3
+
     data class TextLine(
         val text: String,
         val baseline: Double,
@@ -126,12 +142,16 @@ object StampVisual {
     fun label(content: StampContent): TextLine =
         TextLine(content.label, BORDER_TOP + 3.3, 9.0, bold = true, color = TEXTO_DESTAQUE, right = NAME_RIGHT)
 
-    /** Linhas de texto dentro da moldura, na ordem de desenho. Linhas vazias não são desenhadas. */
+    /**
+     * Linhas de texto dentro da moldura, na ordem de desenho. Linhas vazias não são desenhadas.
+     * O bloco, do topo das maiúsculas do nome à linha de base do rodapé, fica centrado entre as
+     * linhas de cima e de baixo da moldura (53) para um nome como "MOISES CAPLUM BEKERMAN".
+     */
     fun lines(content: StampContent): List<TextLine> = listOf(
-        TextLine(content.holder, 38.0, 17.0, bold = true, color = MARINHO, right = NAME_RIGHT),
-        TextLine(content.cpfLine, 53.0, 11.0, bold = false, color = CINZA_ESCURO),
-        TextLine(content.dateLine, 67.5, 10.5, bold = false, color = CINZA_ESCURO),
-        TextLine(content.footer, 86.0, 9.0, bold = false, color = TEXTO_DESTAQUE),
+        TextLine(content.holder, 34.1, 17.0, bold = true, color = MARINHO, right = NAME_RIGHT),
+        TextLine(content.cpfLine, 49.1, 11.0, bold = false, color = CINZA_ESCURO),
+        TextLine(content.dateLine, 63.6, 10.5, bold = false, color = CINZA_ESCURO),
+        TextLine(content.footer, 82.1, 9.0, bold = false, color = TEXTO_DESTAQUE),
     )
 
     /** Tamanho final da fonte para [line] caber até [TextLine.right], dado o avanço medido com tamanho 1. */
