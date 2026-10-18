@@ -5,6 +5,7 @@ import br.com.bkm.assinapdf.pdf.engine.PdfSignatureVerifier
 import br.com.bkm.assinapdf.pdf.engine.PdfSigner
 import br.com.bkm.assinapdf.pdf.engine.SignatureMetadata
 import br.com.bkm.assinapdf.pdf.engine.StampPdfWriter
+import br.com.bkm.assinapdf.pdf.engine.StampStyle
 import br.com.bkm.assinapdf.signing.CertificateInfo
 import br.com.bkm.assinapdf.signing.CmsVerifier
 import br.com.bkm.assinapdf.signing.PadesCmsSigner
@@ -33,13 +34,20 @@ class PdfSigningTest {
     private val pki = TestPki()
     private val holder = CertificateInfo.from(pki.holderCert)
 
+    /** Mesmo caminho do app (SigningService): [PdfSigner.signWithStamps]. */
     private suspend fun stampAndSign(input: File, name: String, stamps: List<Stamp>): File {
         val time = Calendar.getInstance(TimeZone.getTimeZone("America/Sao_Paulo"))
-        val stamped = File(TestPdfs.outDir(), "$name-carimbado.tmp.pdf")
-        StampPdfWriter.write(input, stamped, stamps, StampContent.final(holder.holderName, "18/10/2026 10:00:00 -03:00", holder.issuerName))
         val signed = File(TestPdfs.outDir(), "$name-assinado.pdf")
         val cmsSigner = PadesCmsSigner(pki.signer())
-        PdfSigner.sign(stamped, signed, SignatureMetadata(holder.holderName, time, reason = "Assinatura digital")) { digest -> cmsSigner.sign(digest) }
+        PdfSigner.signWithStamps(
+            input = input,
+            output = signed,
+            stamps = stamps,
+            content = StampContent.final(holder.holderName, "18/10/2026 10:00:00 -03:00", holder.issuerName),
+            style = StampStyle(),
+            metadata = SignatureMetadata(holder.holderName, time, reason = "Assinatura digital"),
+            workFile = { n -> File(TestPdfs.outDir(), "$name-$n.tmp.pdf") },
+        ) { digest -> cmsSigner.sign(digest) }
         return signed
     }
 
@@ -52,10 +60,13 @@ class PdfSigningTest {
             Stamp(pageIndex = 0, centerX = 0.5, centerY = 0.85, widthFraction = 0.15, rotationDeg = 33.0),
         )
         val signed = stampAndSign(input, "contrato", stamps)
-        val stamped = File(TestPdfs.outDir(), "contrato-carimbado.tmp.pdf")
-        // incremental: o arquivo assinado começa com os bytes exatos do carimbado
-        val prefix = signed.readBytes().copyOf(stamped.length().toInt())
-        assertArrayEquals(stamped.readBytes(), prefix)
+        // incremental: antes da revisão da assinatura há um PDF completo, já com os carimbos e sem assinatura
+        val bytes = signed.readBytes()
+        val eofs = Regex("%%EOF").findAll(String(bytes, Charsets.ISO_8859_1)).map { it.range.last + 1 }.toList()
+        PDDocument.load(bytes.copyOf(eofs[eofs.size - 2])).use { before ->
+            assertTrue(before.signatureDictionaries.isEmpty())
+            assertEquals(3, FormProbe.probe(before.getPage(0)).forms.size)
+        }
 
         val v = PdfSignatureVerifier.verify(signed)
         assertEquals(1, v.signatures.size)
@@ -94,32 +105,46 @@ class PdfSigningTest {
     }
 
     @Test
-    fun `PDF ja assinado - carimbos como anotacoes e assinatura anterior continua valida`() = runTest {
+    fun `PDF ja assinado - cada carimbo e a aparencia de uma assinatura e a anterior continua valida`() = runTest {
         val input = TestPdfs.create("ja-assinado.pdf", TestPdfs.A3_LANDSCAPE)
         val first = stampAndSign(input, "ja-assinado-1", emptyList())
         assertTrue(PdfInspector.inspect(first).hasSignatures)
 
-        val stamp = Stamp(pageIndex = 0, centerX = 0.6, centerY = 0.4, widthFraction = 0.2, rotationDeg = 30.0)
-        val second = stampAndSign(first, "ja-assinado-2", listOf(stamp))
+        val stamps = listOf(
+            Stamp(pageIndex = 0, centerX = 0.6, centerY = 0.4, widthFraction = 0.2, rotationDeg = 30.0),
+            Stamp(pageIndex = 0, centerX = 0.25, centerY = 0.75, widthFraction = 0.15),
+        )
+        val second = stampAndSign(first, "ja-assinado-2", stamps)
+        // a revisão anterior fica intacta
+        assertArrayEquals(first.readBytes(), second.readBytes().copyOf(first.length().toInt()))
+
         val v = PdfSignatureVerifier.verify(second)
-        assertEquals(2, v.signatures.size)
+        assertEquals(3, v.signatures.size)
         assertTrue(v.signatures.toString(), v.signatures.all { it.valid })
         assertFalse(v.signatures[0].coversWholeFile) // a primeira cobre só a revisão original, como esperado
-        assertTrue(v.signatures[1].coversWholeFile)
+        assertTrue(v.signatures[2].coversWholeFile)
 
-        // a anotação aparece renderizada no lugar certo
         PDDocument.load(second).use { doc ->
+            // nenhuma anotação de carimbo (o ITI rebaixaria a assinatura anterior); só widgets de assinatura
+            val annots = doc.getPage(0).annotations
+            assertTrue(annots.none { it.subtype == "Stamp" })
+            val visibleWidgets = doc.signatureFields.flatMap { it.widgets }.filter { it.rectangle.width > 0f }
+            assertEquals(2, visibleWidgets.size)
+
+            // cada carimbo aparece renderizado no lugar certo
             val page = PdfInspector.inspect(second).pages[0]
             val img = PDFRenderer(doc).renderImageWithDPI(0, 144f)
-            val ring = StampPlacement.designToDisplay(stamp, page, StampVisual.SEAL_CX, StampVisual.SEAL_CY - StampVisual.SEAL_R)
-            val px = (ring.first * 2).toInt()
-            val py = (ring.second * 2).toInt()
-            var found = false
-            for (dx in -3..3) for (dy in -3..3) {
-                val c = img.getRGB(px + dx, py + dy)
-                if (((c shr 16) and 0xFF) < 80 && (c and 0xFF) > 200) found = true
+            for (stamp in stamps) {
+                val ring = StampPlacement.designToDisplay(stamp, page, StampVisual.SEAL_CX, StampVisual.SEAL_CY - StampVisual.SEAL_R)
+                val px = (ring.first * 2).toInt()
+                val py = (ring.second * 2).toInt()
+                var found = false
+                for (dx in -3..3) for (dy in -3..3) {
+                    val c = img.getRGB(px + dx, py + dy)
+                    if (((c shr 16) and 0xFF) < 80 && (c and 0xFF) > 200) found = true
+                }
+                assertTrue("carimbo $stamp não renderizado na posição esperada", found)
             }
-            assertTrue("carimbo em anotação não renderizado na posição esperada", found)
         }
     }
 }

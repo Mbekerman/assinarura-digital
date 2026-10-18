@@ -447,7 +447,7 @@ class AppViewModel(private val c: AppContainer) : ViewModel() {
         val doc = _state.value.document ?: return
         doc.info.signingBlocker()?.let { return setSign(SignUi.Failed(it, canRetry = false)) }
         if (_state.value.sheet.stamps.isNotEmpty()) {
-            doc.info.stampBlocker()?.let { return setSign(SignUi.Failed(it, canRetry = false)) }
+            doc.info.signatureStampBlocker()?.let { return setSign(SignUi.Failed(it, canRetry = false)) }
         }
         if (!c.signing.isConfigured) {
             return setSign(SignUi.Failed(c.signing.configProblem ?: "Integração SafeID não configurada.", canRetry = false))

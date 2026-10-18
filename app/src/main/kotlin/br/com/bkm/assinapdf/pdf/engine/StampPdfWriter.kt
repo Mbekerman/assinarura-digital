@@ -39,7 +39,10 @@ data class StampStyle(
  *   vetoriais (nada é rasterizado) e o arquivo é regravado por inteiro.
  * - Documento já assinado: as páginas não são tocadas. Os carimbos entram como anotações de
  *   carimbo travadas, gravadas em atualização incremental, para não alterar os bytes cobertos
- *   pelas assinaturas existentes.
+ *   pelas assinaturas existentes. Só serve para rascunho: o validador do ITI trata anotações
+ *   novas como modificação visual e deixa as assinaturas anteriores "Indeterminadas". Ao
+ *   assinar um PDF já assinado, os carimbos vão na aparência da própria assinatura
+ *   ([PdfSigner] com [VisibleStamps]).
  */
 object StampPdfWriter {
 
@@ -92,27 +95,12 @@ object StampPdfWriter {
             val geometry = pages[pageIndex]
             val annotations = page.annotations
             for (stamp in onPage) {
-                val placement = StampPlacement.place(stamp, geometry)
-                val m = placement.matrix
-                val corners = listOf(0.0 to 0.0, StampVisual.W to 0.0, StampVisual.W to StampVisual.H, 0.0 to StampVisual.H)
-                    .map { (x, y) -> StampPlacement.apply(m, x, y) }
-                val rect = PDRectangle(
-                    corners.minOf { it.first }.toFloat(),
-                    corners.minOf { it.second }.toFloat(),
-                    (corners.maxOf { it.first } - corners.minOf { it.first }).toFloat(),
-                    (corners.maxOf { it.second } - corners.minOf { it.second }).toFloat(),
-                )
-                val ap = PDAppearanceStream(doc)
-                ap.bBox = PDRectangle(0f, 0f, StampVisual.W.toFloat(), StampVisual.H.toFloat())
-                ap.resources = PDResources()
-                // /Matrix com rotação e escala; o leitor encaixa a caixa transformada em /Rect por translação
-                ap.cosObject.setItem(COSName.MATRIX, floatArray(m[0], m[1], m[2], m[3], 0.0, 0.0))
-                PDPageContentStream(doc, ap).use { cs -> cs.drawForm(form) }
+                val placed = placedAppearance(doc, stamp, geometry, form)
                 val annot = PDAnnotationRubberStamp()
-                annot.rectangle = rect
+                annot.rectangle = placed.rect
                 annot.contents = content.label + " " + content.holder
                 annot.cosObject.setInt(COSName.F, FLAG_PRINT or FLAG_LOCKED or FLAG_LOCKED_CONTENTS)
-                annot.appearance = PDAppearanceDictionary().also { it.setNormalAppearance(ap) }
+                annot.appearance = PDAppearanceDictionary().also { it.setNormalAppearance(placed.appearance) }
                 annot.page = page
                 annotations.add(annot)
             }
@@ -122,6 +110,28 @@ object StampPdfWriter {
             changed += page.cosObject
         }
         return changed
+    }
+
+    /** Retângulo na página e aparência de um carimbo, para anotação ou widget de assinatura. */
+    class PlacedAppearance(val rect: PDRectangle, val appearance: PDAppearanceStream)
+
+    fun placedAppearance(doc: PDDocument, stamp: Stamp, geometry: PageGeometry, form: PDFormXObject): PlacedAppearance {
+        val m = StampPlacement.place(stamp, geometry).matrix
+        val corners = listOf(0.0 to 0.0, StampVisual.W to 0.0, StampVisual.W to StampVisual.H, 0.0 to StampVisual.H)
+            .map { (x, y) -> StampPlacement.apply(m, x, y) }
+        val rect = PDRectangle(
+            corners.minOf { it.first }.toFloat(),
+            corners.minOf { it.second }.toFloat(),
+            (corners.maxOf { it.first } - corners.minOf { it.first }).toFloat(),
+            (corners.maxOf { it.second } - corners.minOf { it.second }).toFloat(),
+        )
+        val ap = PDAppearanceStream(doc)
+        ap.bBox = PDRectangle(0f, 0f, StampVisual.W.toFloat(), StampVisual.H.toFloat())
+        ap.resources = PDResources()
+        // /Matrix com rotação e escala; o leitor encaixa a caixa transformada em /Rect por translação
+        ap.cosObject.setItem(COSName.MATRIX, floatArray(m[0], m[1], m[2], m[3], 0.0, 0.0))
+        PDPageContentStream(doc, ap).use { cs -> cs.drawForm(form) }
+        return PlacedAppearance(rect, ap)
     }
 
     /** Cria o Form XObject do carimbo (BBox 0 0 300 100, Y para cima). */
@@ -224,7 +234,7 @@ object StampPdfWriter {
         values.forEach { arr.add(COSFloat(it.toFloat())) }
     }
 
-    private const val FLAG_PRINT = 1 shl 2
-    private const val FLAG_LOCKED = 1 shl 7
+    internal const val FLAG_PRINT = 1 shl 2
+    internal const val FLAG_LOCKED = 1 shl 7
     private const val FLAG_LOCKED_CONTENTS = 1 shl 9
 }

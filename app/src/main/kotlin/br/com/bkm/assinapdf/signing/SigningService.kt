@@ -8,7 +8,6 @@ import br.com.bkm.assinapdf.pdf.engine.PdfSignatureVerifier
 import br.com.bkm.assinapdf.pdf.engine.PdfSigner
 import br.com.bkm.assinapdf.pdf.engine.PdfVerification
 import br.com.bkm.assinapdf.pdf.engine.SignatureMetadata
-import br.com.bkm.assinapdf.pdf.engine.StampPdfWriter
 import br.com.bkm.assinapdf.pdf.engine.StampStyle
 import br.com.bkm.assinapdf.sharing.FileNames
 import br.com.bkm.assinapdf.stamps.Stamp
@@ -140,22 +139,21 @@ class SigningService(
         }
         val calendar = Calendar.getInstance().apply { time = now }
         val timeText = timeFormat().format(now)
-        val stamped = storage.tempFile(documentId, "final")
         val target = storage.uniqueOutput(documentId, FileNames.signedName(originalName))
         val partial = File(target.parentFile, target.name + ".partial")
         try {
-            onStep("Incorporando carimbos")
-            try {
-                StampPdfWriter.write(original, stamped, stamps, StampContent.final(info.holderName, timeText, info.issuerName), style)
-            } catch (e: PdfOpenException) {
-                throw SigningException.UnsupportedDocument(e.message ?: "PDF não suportado")
-            }
-            onStep("Aguardando assinatura no SafeID")
             val cmsSigner = PadesCmsSigner(PscRemoteSigner(c, token, certificate, originalName), config?.signaturePolicy)
             try {
-                PdfSigner.sign(stamped, partial, SignatureMetadata(info.holderName, calendar, reason = "Assinatura digital ICP-Brasil")) { digest ->
-                    cmsSigner.sign(digest)
-                }
+                PdfSigner.signWithStamps(
+                    input = original,
+                    output = partial,
+                    stamps = stamps,
+                    content = StampContent.final(info.holderName, timeText, info.issuerName),
+                    style = style,
+                    metadata = SignatureMetadata(info.holderName, calendar, reason = "Assinatura digital ICP-Brasil"),
+                    workFile = { name -> storage.tempFile(documentId, name) },
+                    onStep = onStep,
+                ) { digest -> cmsSigner.sign(digest) }
             } catch (e: PdfOpenException) {
                 throw SigningException.UnsupportedDocument(e.message ?: "PDF não suportado")
             } catch (e: SigningException) {
@@ -176,7 +174,6 @@ class SigningService(
             }
             SignedOutcome(target, verification, info.holderName, timeText, info.issuerName)
         } finally {
-            stamped.delete()
             partial.delete()
         }
     }

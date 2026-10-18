@@ -37,7 +37,16 @@ data class PdfInfo(
         else -> null
     }
 
-    /** Aviso para carimbos visíveis, quando a certificação existente não permite anotações. */
+    /**
+     * Carimbos ao assinar PDF já assinado: vão como aparência da nova assinatura (widget), o que a
+     * certificação DocMDP 2 permite; só a permissão de anotações do PDF protegido impede.
+     */
+    fun signatureStampBlocker(): String? = when {
+        hasSignatures && !canModifyAnnotations -> "O PDF não permite anotações; só é possível assinar sem carimbo."
+        else -> null
+    }
+
+    /** Aviso para carimbos como anotação (rascunho de PDF já assinado). */
     fun stampBlocker(): String? = when {
         docMdpLevel == 2 -> "A certificação deste PDF não permite carimbos visíveis. Só é possível assinar sem carimbo."
         hasSignatures && !canModifyAnnotations -> "O PDF não permite anotações; carimbos visíveis invalidariam as assinaturas existentes."

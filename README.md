@@ -87,10 +87,15 @@ server/retorno/          Função da Railway: retorno HTTPS (App Link) e troca d
 
 ### PDF já assinado
 
-Se o PDF já tem assinaturas, as páginas não são alteradas: os carimbos entram como anotações
-travadas numa revisão incremental, e a nova assinatura vem em outra revisão. Os testes confirmam
-que a assinatura anterior continua íntegra. Certificação DocMDP nível 1 bloqueia a assinatura e
-nível 2 bloqueia carimbos visíveis, com aviso.
+Se o PDF já tem assinaturas, as páginas não são alteradas: cada carimbo vira a aparência de uma
+assinatura nova (widget do campo de assinatura), em revisões incrementais. Com 3 carimbos, o
+documento recebe 3 assinaturas suas, uma por carimbo, todas com o mesmo token do SafeID.
+
+Motivo: sem DocMDP declarado, o validador do ITI aplica o nível 2 às assinaturas existentes, que
+permite assinar mas não anotar. Um carimbo como anotação deixava a assinatura anterior
+"Indeterminada" ("modificações visuais"); como aparência da assinatura, ela continua "Aprovada"
+(conferido no validar.iti.gov.br). Certificação DocMDP nível 1 bloqueia a assinatura, com aviso.
+O rascunho de um PDF já assinado ainda usa anotações, porque não é assinado.
 
 ### Assinatura
 

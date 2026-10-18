@@ -1,11 +1,24 @@
 package br.com.bkm.assinapdf.pdf.engine
 
+import br.com.bkm.assinapdf.stamps.PageGeometry
+import br.com.bkm.assinapdf.stamps.Stamp
+import br.com.bkm.assinapdf.stamps.StampContent
+import com.tom_roush.pdfbox.cos.COSName
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary
 import com.tom_roush.pdfbox.pdmodel.interactive.digitalsignature.PDSignature
 import com.tom_roush.pdfbox.pdmodel.interactive.digitalsignature.SignatureOptions
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.util.Calendar
+
+/** Carimbo desenhado como aparência da própria assinatura (widget do campo de assinatura). */
+data class VisibleStamp(
+    val stamp: Stamp,
+    val content: StampContent,
+    val style: StampStyle = StampStyle(),
+)
 
 /** Metadados do dicionário de assinatura. */
 data class SignatureMetadata(
@@ -21,6 +34,12 @@ data class SignatureMetadata(
  * Fluxo: reserva o espaço de /Contents, grava o arquivo com o ByteRange, calcula o SHA-256 dos
  * bytes cobertos, obtém o CMS de [cmsForDigest] e o escreve no espaço reservado. Nenhum byte do
  * documento é alterado depois disso.
+ *
+ * Com [VisibleStamp], o carimbo é a aparência do widget da nova assinatura. Em PDF já assinado,
+ * é a forma de carimbo que o validador do ITI aceita sem rebaixar as assinaturas anteriores: sem
+ * DocMDP declarado ele aplica o nível 2, que permite assinar mas não anotar. Campo e widget ficam
+ * no mesmo dicionário (forma usual); um campo com vários widgets em /Kids não é reconhecido por
+ * todos os leitores (o poppler, por exemplo, o mostra como não assinado).
  */
 object PdfSigner {
     /** Espaço reservado para o CMS (bytes). Cadeia ICP-Brasil típica: 3 a 5 certificados. */
@@ -30,6 +49,7 @@ object PdfSigner {
         input: File,
         output: File,
         metadata: SignatureMetadata,
+        visible: VisibleStamp? = null,
         cmsForDigest: suspend (ByteArray) -> ByteArray,
     ) {
         require(input.canonicalPath != output.canonicalPath) { "a saída não pode sobrescrever a entrada" }
@@ -47,7 +67,11 @@ object PdfSigner {
 
             SignatureOptions().use { options ->
                 options.preferredSignatureSize = RESERVED_CMS_BYTES
+                if (visible != null) options.page = visible.stamp.pageIndex
                 doc.addSignature(signature, options)
+                // o pdfbox cria o widget como assinatura invisível (Rect zero, aparência vazia);
+                // o carimbo passa a ser a aparência dele
+                if (visible != null) applyStamp(doc, info.pages, signature, visible)
                 // o pdfbox escreve o arquivo de entrada intacto e acrescenta a atualização incremental
                 FileOutputStream(output).use { out ->
                     val external = doc.saveIncrementalForExternalSigning(out)
@@ -68,5 +92,63 @@ object PdfSigner {
                 }
             }
         }
+    }
+
+    /**
+     * Carimbos e assinatura, na forma que preserva as assinaturas existentes:
+     * - PDF sem assinaturas: carimbos no conteúdo das páginas ([StampPdfWriter]) e uma assinatura;
+     * - PDF já assinado: uma assinatura por carimbo, cada uma com o carimbo como aparência (uma
+     *   anotação nova deixaria as anteriores "Indeterminadas" no validador do ITI).
+     * [workFile] fornece arquivos intermediários, apagados ao final.
+     */
+    suspend fun signWithStamps(
+        input: File,
+        output: File,
+        stamps: List<Stamp>,
+        content: StampContent,
+        style: StampStyle,
+        metadata: SignatureMetadata,
+        workFile: (String) -> File,
+        onStep: (String) -> Unit = {},
+        cmsForDigest: suspend (ByteArray) -> ByteArray,
+    ) {
+        val temps = ArrayList<File>()
+        fun temp(name: String) = workFile(name).also { temps += it }
+        try {
+            when {
+                !PdfInspector.inspect(input).hasSignatures -> {
+                    onStep("Incorporando carimbos")
+                    val stamped = temp("carimbado")
+                    StampPdfWriter.write(input, stamped, stamps, content, style)
+                    onStep("Aguardando assinatura no SafeID")
+                    sign(stamped, output, metadata, cmsForDigest = cmsForDigest)
+                }
+                stamps.isEmpty() -> {
+                    onStep("Aguardando assinatura no SafeID")
+                    sign(input, output, metadata, cmsForDigest = cmsForDigest)
+                }
+                else -> {
+                    var source = input
+                    stamps.forEachIndexed { i, stamp ->
+                        onStep(if (stamps.size == 1) "Aguardando assinatura no SafeID" else "Assinando carimbo ${i + 1} de ${stamps.size}")
+                        val out = if (i == stamps.lastIndex) output else temp("etapa$i")
+                        sign(source, out, metadata, VisibleStamp(stamp, content, style), cmsForDigest)
+                        source = out
+                    }
+                }
+            }
+        } finally {
+            temps.forEach { it.delete() }
+        }
+    }
+
+    private fun applyStamp(doc: PDDocument, pages: List<PageGeometry>, signature: PDSignature, visible: VisibleStamp) {
+        val field = doc.signatureFields.first { it.cosObject.getCOSDictionary(COSName.V) === signature.cosObject }
+        val widget = field.widgets.single()
+        val form = StampPdfWriter.createForm(doc, visible.content, visible.style)
+        val placed = StampPdfWriter.placedAppearance(doc, visible.stamp, pages[visible.stamp.pageIndex], form)
+        widget.rectangle = placed.rect
+        widget.appearance = PDAppearanceDictionary().also { it.setNormalAppearance(placed.appearance) }
+        widget.cosObject.setInt(COSName.F, StampPdfWriter.FLAG_PRINT or StampPdfWriter.FLAG_LOCKED)
     }
 }
