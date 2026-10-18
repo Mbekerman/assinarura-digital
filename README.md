@@ -15,7 +15,7 @@ ICP-Brasil A3 em nuvem SafeID (Safeweb). A interface segue o design system BKM.
 | Exportação com carimbos vetoriais, sem rasterizar a página | Implementado; testes com renderização |
 | Rascunho sem assinatura, identificado como tal | Implementado |
 | Assinatura PAdES montada pelo app sobre hash assinado pelo PSC | Implementado; testado com chave de teste |
-| Integração SafeID real | **Pendente de credenciais e confirmação da API** ([docs/SAFEID.md](docs/SAFEID.md)) |
+| Integração SafeID real | API confirmada na documentação oficial e credenciais testadas no `/token`; falta a primeira assinatura real ([docs/SAFEID.md](docs/SAFEID.md)) |
 | Compartilhar o PDF final pelo Sharesheet | Implementado |
 
 O APK é compilado pelo GitHub Actions (aba **Actions**, artefato `assinapdf-apk`), que também
@@ -36,7 +36,7 @@ Para compilar localmente, use o Android Studio (Ladybug ou mais novo) com JDK 17
 
 ```bash
 ./gradlew :app:assembleDebug
-./gradlew :core:stamps:test :core:signing:test :verify:pdf-jvm:test :server:token-broker:test
+./gradlew :core:stamps:test :core:signing:test :verify:pdf-jvm:test
 ```
 
 Sem Android SDK, o `settings.gradle.kts` ignora o módulo `:app` e compila só os módulos JVM.
@@ -66,7 +66,7 @@ app/                     Aplicativo Android (Kotlin, Jetpack Compose, Material 3
 core/stamps/             Geometria das páginas e carimbos, editor, histórico (Kotlin puro)
 core/signing/            Cliente da API PSC, PKCE, CMS PAdES, verificação (Kotlin puro)
 verify/pdf-jvm/          Testa o motor de PDF do app na JVM, com Apache PDFBox
-server/token-broker/     Serviço intermediário mínimo para a troca do código OAuth
+server/retorno/          Função da Railway: retorno HTTPS (App Link) e troca do código OAuth
 ```
 
 ### Modelo de coordenadas
@@ -104,22 +104,33 @@ feita no VALIDAR do ITI.
 
 ## Configuração
 
-Copie `signing-config.example.properties` para `signing-config.properties` (fora do Git) e
-preencha. As mesmas chaves podem vir de variáveis de ambiente ou de segredos do GitHub Actions
-(`SAFEID_BASEURL`, `SAFEID_CLIENTID`, `SAFEID_TOKENMODE`, `SAFEID_BROKERURL`, `SAFEID_BROKERKEY`).
+A integração segue a documentação oficial do SafeID (`https://pscsafeweb.safewebpss.com.br/Docs/`)
+e já tem padrões no build: URL base
+`https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth`, `client_id`
+`assinapdf-rixiycui`, retorno `https://retorno-production.up.railway.app/oauth/callback`,
+escopo `signature_session` e validade de 24 h. Detalhes em [docs/SAFEID.md](docs/SAFEID.md).
 
-### Serviço intermediário (somente se a Safeweb exigir client_secret)
+O único valor que não fica no repositório é a chave de acesso ao serviço intermediário, que entra
+no build pelo segredo do GitHub `SAFEID_BROKERKEY` (ou `safeid.brokerKey` em
+`signing-config.properties`, fora do Git, para build local). Qualquer outro padrão pode ser
+trocado do mesmo jeito (modelo em `signing-config.example.properties`).
 
-```bash
-export PSC_TOKEN_URL=https://<url-do-psc>/v0/oauth/token
-export PSC_CLIENT_ID=...  PSC_CLIENT_SECRET=...
-export BROKER_KEY=<texto aleatório com 16+ caracteres>
-export ALLOWED_REDIRECT_URIS=assinapdf://oauth/callback
-./gradlew :server:token-broker:run
-```
+### Serviço intermediário (Railway)
 
-Ele escuta em `127.0.0.1:8080` e deve ficar atrás de um proxy reverso com TLS. Só troca o código
-pelo token; não recebe documentos nem hashes e não registra corpos de requisição.
+O `/token` do SafeID exige `client_secret`, que não pode ficar no APK. O arquivo
+`server/retorno/index.ts` é a função Bun publicada na Railway (projeto "AssinaPDF retorno"). Ela:
+
+- serve `/.well-known/assetlinks.json` (App Link do app assinado com a chave fixa);
+- serve `/oauth/callback`, página que devolve o código ao app se o App Link não abrir sozinho;
+- em `POST /v1/token`, confere o cabeçalho `X-AssinaPDF-Key` e o `redirect_uri`, acrescenta
+  `client_id` e `client_secret` e chama o `/token` do SafeID. Devolve só `access_token`,
+  `token_type`, `expires_in` e `scope`.
+
+Variáveis da função: `PSC_CLIENT_ID`, `PSC_CLIENT_SECRET`, `PSC_TOKEN_URL`, `BROKER_KEY` e
+`ALLOWED_REDIRECT_URIS`. Ela não recebe documentos nem hashes, não grava nada e não registra
+códigos ou tokens. A chave `X-AssinaPDF-Key` fica dentro do APK: serve para conter abuso, não é um
+segredo forte. Quem a tiver ainda precisaria de um código de autorização aprovado pelo titular no
+app SafeID e do verificador PKCE correspondente.
 
 ## Dependências e licenças
 
@@ -142,7 +153,6 @@ Microsoft e não está no APK; o app usa a sans do sistema, como prevê o própr
 | `core:stamps` | 34 | Formatos A0–A4 (Teste B), rotações de página e carimbo, CropBox, UserUnit, colocação no PDF igual à prévia (Teste D), zoom sem efeito no tamanho (Teste G), redimensionamento proporcional (Teste C), inserção múltipla e páginas diferentes (Testes E e F), desfazer/refazer, limites |
 | `core:signing` | 17 | PKCE (RFC 7636), URL de autorização, troca de código, descoberta, assinatura, erros (401, 500, JSON inválido, sem rede), CMS PAdES, adulteração, certificado vencido |
 | `verify:pdf-jvm` | 9 | PDF exportado: largura física por formato, matrizes e pixels por rotação, dez carimbos, páginas mistas, conteúdo vetorial preservado (Teste H), assinatura válida, adulteração, PDF já assinado |
-| `server:token-broker` | 2 | Troca do código com segredo e recusas |
 | `app` (unitário) | 2 | Nomes de arquivo de saída |
 | `app` (instrumentado, emulador no CI) | 3 | Compartilhamento abre o editor (Teste A), onNewIntent, dez duplos toques e pinça (Testes E e G) |
 

@@ -36,7 +36,7 @@ class PscApiClientTest {
     private fun client(mode: TokenMode = TokenMode.DIRECT_PKCE): PscApiClient {
         val base = server.url("/").toString()
         val cfg = PscConfig(
-            baseUrl = "https://placeholder/",
+            baseUrl = "https://placeholder/api/v0/oauth",
             clientId = "cliente-teste",
             tokenMode = mode,
             brokerUrl = if (mode == TokenMode.BROKER) "https://placeholder-broker/" else null,
@@ -61,7 +61,7 @@ class PscApiClientTest {
     fun `url de autorizacao tem os parametros do fluxo com PKCE`() {
         val c = client()
         val url = c.authorizationUrl(Pkce("v", "desafio"), "estado123", loginHint = "12345678901").toHttpUrl()
-        assertEquals("/v0/oauth/authorize", url.encodedPath)
+        assertEquals("/api/v0/oauth/authorize", url.encodedPath)
         assertEquals("code", url.queryParameter("response_type"))
         assertEquals("cliente-teste", url.queryParameter("client_id"))
         assertEquals("assinapdf://oauth/callback", url.queryParameter("redirect_uri"))
@@ -91,7 +91,7 @@ class PscApiClientTest {
         assertEquals("tok", token.value)
         assertEquals(1_000_000L + 600_000L, token.expiresAtEpochMs)
         val req = server.takeRequest()
-        assertEquals("/v0/oauth/token", req.path)
+        assertEquals("/api/v0/oauth/token", req.path)
         val body = req.body.readUtf8()
         assertTrue(body.contains("code_verifier=verificador"))
         assertTrue(body.contains("grant_type=authorization_code"))
@@ -121,7 +121,9 @@ class PscApiClientTest {
         assertEquals("meu-cert", certs[0].alias)
         assertEquals(2, certs[0].chain.size)
         assertEquals("FULANO DE TAL", certs[0].info.holderName)
-        assertEquals("Bearer t", server.takeRequest().getHeader("Authorization"))
+        val req = server.takeRequest()
+        assertEquals("/api/v0/oauth/certificate-discovery", req.path)
+        assertEquals("Bearer t", req.getHeader("Authorization"))
     }
 
     @Test
@@ -131,7 +133,9 @@ class PscApiClientTest {
         server.enqueue(MockResponse().setBody("""{"certificate_alias":"a","signatures":[{"id":"1","raw_signature":"${Base64.getEncoder().encodeToString(sig)}"}]}"""))
         val out = client().signHash(AccessToken("t", "Bearer", Long.MAX_VALUE, null), "a", hash, "planta.pdf")
         assertArrayEquals(sig, out)
-        val body = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
+        val req = server.takeRequest()
+        assertEquals("/api/v0/oauth/signature", req.path)
+        val body = Json.parseToJsonElement(req.body.readUtf8()).jsonObject
         assertEquals("a", body["certificate_alias"]!!.jsonPrimitive.content)
         val h = body["hashes"]!!.jsonArray[0].jsonObject
         assertEquals(Base64.getEncoder().encodeToString(hash), h["hash"]!!.jsonPrimitive.content)

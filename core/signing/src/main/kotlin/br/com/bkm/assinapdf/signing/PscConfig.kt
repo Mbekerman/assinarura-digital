@@ -3,12 +3,9 @@ package br.com.bkm.assinapdf.signing
 /**
  * Configuração da integração com o PSC (Prestador de Serviço de Confiança) do certificado em nuvem.
  *
- * Os caminhos padrão seguem a API padronizada para PSCs da ICP-Brasil (DOC-ICP-17.01), como é
- * descrita publicamente por integradores de BirdID, VIDaaS e outros PSCs. A documentação
- * específica da Safeweb (https://pscsafeweb.safewebpss.com.br/Docs/) não pôde ser consultada a
- * partir do ambiente de desenvolvimento, então base, caminhos, nomes de campos e o uso de PKCE
- * PRECISAM ser confirmados nela antes do uso real. Por isso todos são configuráveis e a URL base
- * não tem valor padrão.
+ * Os caminhos padrão são os da documentação oficial do SafeID
+ * (https://pscsafeweb.safewebpss.com.br/Docs/), relativos à URL base
+ * `https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth`.
  */
 data class PscConfig(
     /** URL base do PSC, por exemplo a informada no painel SafeID Integração. Obrigatória. */
@@ -19,11 +16,11 @@ data class PscConfig(
     val redirectUri: String = DEFAULT_REDIRECT_URI,
     /** Escopo pedido na autorização. "signature_session" permite várias assinaturas durante [lifetimeSeconds]. */
     val scope: String = "signature_session",
-    /** Validade pedida para o token, em segundos (o PSC pode limitar). */
-    val lifetimeSeconds: Int = 900,
+    /** Validade pedida para o token, em segundos. O SafeID limita a 7 dias para pessoa física; sem o parâmetro, 5 minutos. */
+    val lifetimeSeconds: Int = 86_400,
     /** Como trocar o código de autorização pelo token. */
     val tokenMode: TokenMode = TokenMode.BROKER,
-    /** URL do serviço intermediário mínimo (módulo server/token-broker), quando [tokenMode] = BROKER. */
+    /** URL do serviço intermediário mínimo (server/retorno), quando [tokenMode] = BROKER. */
     val brokerUrl: String? = null,
     /** Chave de acesso ao serviço intermediário. Fica no APK; serve só para conter abuso, não é segredo forte. */
     val brokerKey: String? = null,
@@ -57,15 +54,15 @@ enum class TokenMode {
     BROKER,
 }
 
-/** Caminhos relativos à URL base. Padrões: API PSC ICP-Brasil (a confirmar na documentação Safeweb). */
+/** Caminhos relativos à URL base, conforme a documentação do SafeID. */
 data class PscPaths(
-    val authorize: String = "v0/oauth/authorize",
-    val token: String = "v0/oauth/token",
-    val certificateDiscovery: String = "v0/oauth/certificate-discovery",
-    val signature: String = "v0/oauth/signature",
+    val authorize: String = "authorize",
+    val token: String = "token",
+    val certificateDiscovery: String = "certificate-discovery",
+    val signature: String = "signature",
 )
 
-/** Nomes de campos que variam entre descrições da API; ajustáveis sem recompilar a lógica. */
+/** Nomes de campos e formato da assinatura; ajustáveis sem recompilar a lógica. */
 data class PscDialect(
     val hashAlgorithmField: String = "hash_algorithm",
     val signatureFormat: SignatureFormat = SignatureFormat.RAW,

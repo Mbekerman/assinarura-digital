@@ -1,63 +1,75 @@
-# Integração SafeID (Safeweb): o que foi verificado e o que falta
+# Integração SafeID (Safeweb)
 
-Este documento separa o que está implementado e testado do que depende de informação que não
-pôde ser confirmada a partir do ambiente de desenvolvimento.
+Tudo abaixo foi conferido na documentação oficial (`https://pscsafeweb.safewebpss.com.br/Docs/`)
+e, onde indicado, com chamadas reais à API.
 
 ## Situação
 
 | Item | Situação |
 |---|---|
-| Fluxo OAuth2 com PKCE (S256), `state` contra CSRF | Implementado e testado com servidor simulado |
-| Autorização no mesmo aparelho, via navegador seguro (Custom Tab) | Implementado; depende de a Safeweb aceitar a URI de retorno |
+| Endpoints, parâmetros e campos | Conferidos na documentação oficial |
+| Cadastro da aplicação (`client_id`, URI de retorno) | Conferido: `/authorize` aceita o `client_id` e o retorno da Railway |
+| `client_id` + `client_secret` no `/token` | Conferido: com o segredo da Railway o PSC responde `invalid_grant` para um código falso; com um segredo errado, "Verifique o client_id e client_secret" |
+| Fluxo OAuth2 com PKCE (S256) e `state` | Implementado e testado com servidor simulado |
+| Retorno HTTPS por App Link, com página de reserva | Implementado e publicado (`server/retorno`) |
 | Token guardado cifrado (AES-GCM, Android Keystore) | Implementado |
-| Descoberta de certificados e leitura do titular (CN ICP-Brasil, CPF) | Implementado e testado com certificado de teste |
-| Assinatura remota de **hash** (formato RAW, PKCS#1 v1.5) | Implementado e testado com servidor simulado |
-| Montagem do CMS/PAdES (`ETSI.CAdES.detached`, ByteRange, `signing-certificate-v2`) | Implementado e testado com chave de teste |
+| Assinatura remota de **hash** (RAW, PKCS#1 v1.5) e montagem do CMS/PAdES | Implementado e testado com chave de teste |
 | Verificação local antes de declarar sucesso | Implementado e testado (inclusive adulteração) |
-| Serviço intermediário para `client_secret` | Implementado e testado (`server/token-broker`) |
-| **Assinatura real com o SafeID** | **Não executada**: faltam credenciais e confirmação da API |
+| **Primeira assinatura real** | **Não executada**: depende da autorização do titular no app SafeID |
 | **Validação no VALIDAR do ITI** | **Não executada**: depende da assinatura real |
 
-Nenhuma parte do app simula uma assinatura. Sem configuração, o botão "Assinar" explica o que
-falta e o editor e a exportação de rascunho continuam funcionando.
+Nenhuma parte do app simula uma assinatura.
 
-## O que foi possível pesquisar
+## API usada
 
-- A página de documentação (`https://pscsafeweb.safewebpss.com.br/Docs/`), o site da Safeweb e o
-  painel de integração não puderam ser acessados daqui (bloqueio de rede do ambiente). Nenhum
-  endpoint foi copiado de lá.
-- Os termos de uso do SafeID descrevem que o uso por aplicações integradas exige autorização do
-  titular (QR code ou código no app SafeID, com PIN) e citam o DOC-ICP-17 e o DOC-ICP-17.01.
-- O DOC-ICP-17.01 define uma API comum aos PSCs da ICP-Brasil. Integradores de BirdID, VIDaaS e
-  outros descrevem publicamente essa API com: autorização OAuth2 (`/v0/oauth/authorize`, escopos
-  como `signature_session` e `single_signature`, PKCE), troca de código em `/v0/oauth/token`,
-  `/v0/oauth/certificate-discovery` e `/v0/oauth/signature` com `hashes[]`, OID do algoritmo de
-  hash e `signature_format` `RAW` ou `CMS`.
-- Por isso os caminhos padrão do app seguem esse padrão, mas **todos são configuráveis** e a URL
-  base não tem valor padrão.
+URL base: `https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth`
+(homologação: host `pscsafeweb-homologacao.safewebpss.com.br`).
 
-## O que precisa ser confirmado na documentação da Safeweb
+| Chamada | Uso no app |
+|---|---|
+| `GET /authorize` | `response_type=code`, `client_id`, `redirect_uri`, `state`, `scope=signature_session`, `lifetime` (segundos; máximo 7 dias para pessoa física, padrão do PSC 5 min), `code_challenge`, `code_challenge_method=S256`, `login_hint` (CPF, opcional) |
+| `POST /token` | Form: `grant_type=authorization_code`, `client_id`, `client_secret`, `code`, `redirect_uri`, `code_verifier`. Feito pela função da Railway, porque exige o segredo |
+| `GET /certificate-discovery` | `Authorization: Bearer`; resposta `{status, certificates:[{alias, certificate}]}` (PEM) |
+| `POST /signature` | `{certificate_alias, hashes:[{id, alias, hash, hash_algorithm: "2.16.840.1.101.3.4.2.1", signature_format: "RAW"}]}`; resposta `{certificate_alias, signatures:[{id, raw_signature}]}` |
 
-1. URL base da API do PSC Safeweb.
-2. Cadastro da aplicação no painel `https://admin-safeid.safeweb.com.br/`: `client_id`, se há
-   `client_secret`, e quais URIs de retorno são aceitas (o app usa `assinapdf://oauth/callback`;
-   se só HTTPS for aceito, é preciso um App Link ou uma página de retorno).
-3. Se a troca do código aceita cliente público só com PKCE (`safeid.tokenMode=DIRECT_PKCE`) ou
-   exige `client_secret` (usar `BROKER` e publicar o `server/token-broker`).
-4. Nome exato dos campos de `/signature`: o app envia `hash_algorithm` (ajustável em
-   `safeid.hashAlgorithmField`) e lê `raw_signature` ou `signature`.
-5. Formato do certificado em `/certificate-discovery` (o app aceita PEM ou Base64 de DER, e
-   cadeia em `certificate_chain` ou `chain`).
-6. Escopos, validade máxima do token (`lifetime`) e cobrança por assinatura.
-7. Política de assinatura ICP-Brasil exigida (PAdES AD-RB): OID, hash e URI oficiais do ITI. O
-   app só inclui a política se esses valores forem configurados; nunca usa valores inventados.
+O que não é usado, e por quê:
+
+- `/pades-signature/*`: envia o PDF inteiro ao PSC e não aceita carimbo girado. O app manda só o
+  hash.
+- Fluxo CA (`authorize-ca`, `pwd_authorize`, com PIN): exigiria pedir o PIN dentro do app.
+- `/signature-icp`: assina com política ICP-Brasil (`signature_policy`, por exemplo AD-RB). Fica
+  como alternativa se o VALIDAR do ITI apontar a falta da política.
+
+## Como a autorização funciona no celular
+
+1. O app abre `/authorize` numa Custom Tab. O PSC redireciona para a página `CertificateUse`, que
+   mostra um QR code e um código curto e, no celular, o botão **Autorizar no SafeID** (link para
+   `https://app-psc.safewebpss.com.br/qrcode-safeweb?token=...`, que abre o app SafeID).
+2. O titular aprova no app SafeID (com o PIN do SafeID; o AssinaPDF nunca vê o PIN).
+3. A página `CertificateUse` consulta o PSC a cada 3 s. Ao confirmar, vai para
+   `https://retorno-production.up.railway.app/oauth/callback?code=...&state=...`. O código da
+   página monta esse endereço com `url-join`, que junta os parâmetros com `&`.
+4. O Android abre o AssinaPDF pelo App Link. Se não abrir, a página da Railway redireciona para
+   `assinapdf://oauth/callback` e mostra o botão **Voltar ao AssinaPDF**.
+5. O app envia código e verificador PKCE à função da Railway, recebe o token e assina.
+
+Ponto ainda não testado: se a Custom Tab fica em segundo plano enquanto o titular está no app
+SafeID e o redirecionamento por JavaScript não dispara o App Link, basta voltar à Custom Tab e
+tocar em **Voltar ao AssinaPDF**.
+
+## Validade do token
+
+O app pede `lifetime=86400` (24 h) com escopo `signature_session`: uma autorização vale para
+várias assinaturas no mesmo dia. O token fica cifrado no Keystore e é apagado ao vencer. Dá para
+pedir até 7 dias (`safeid.lifetime=604800`), mas, nesse período, quem tiver o celular
+desbloqueado assina sem nova aprovação no SafeID.
 
 ## Como testar a assinatura real
 
-1. Preencha `signing-config.properties` (modelo em `signing-config.example.properties`).
-2. Se necessário, publique o `server/token-broker` (veja o README) e configure `safeid.brokerUrl`.
-3. Gere o APK, abra um PDF, posicione os carimbos e toque em "Assinar".
-4. Autorize no SafeID. O app só mostra "Documento assinado com sucesso" se a verificação local
+1. Cadastre o segredo `SAFEID_BROKERKEY` no GitHub e rode o CI de novo (o Release `apk-teste` é
+   atualizado).
+2. Instale o APK, abra um PDF, posicione os carimbos e toque em **Assinar**.
+3. Autorize no SafeID. O app só mostra "Documento assinado com sucesso" se a verificação local
    confirmar a integridade e o certificado.
-5. Envie o arquivo para `https://validar.iti.gov.br` e confira o resultado (Teste I).
-6. Compartilhe pelo WhatsApp e valide de novo o arquivo recebido em outro aparelho (Teste J).
+4. Envie o arquivo para `https://validar.iti.gov.br` e confira o resultado (Teste I).
+5. Compartilhe pelo WhatsApp e valide de novo o arquivo recebido em outro aparelho (Teste J).

@@ -12,8 +12,10 @@ val localConfig = Properties().apply {
     val f = rootProject.file("signing-config.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
+// Variável vazia (segredo do GitHub não cadastrado) conta como ausente, para não anular o padrão.
 fun cfg(key: String, default: String = ""): String =
-    (System.getenv(key.uppercase().replace('.', '_')) ?: localConfig.getProperty(key) ?: default).trim()
+    (System.getenv(key.uppercase().replace('.', '_'))?.takeIf { it.isNotBlank() }
+        ?: localConfig.getProperty(key)?.takeIf { it.isNotBlank() } ?: default).trim()
 fun quoted(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
 // Retorno HTTPS publicado na Railway (projeto "AssinaPDF retorno"); o painel do SafeID não aceita
@@ -35,18 +37,18 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "SAFEID_BASE_URL", quoted(cfg("safeid.baseUrl")))
-        buildConfigField("String", "SAFEID_CLIENT_ID", quoted(cfg("safeid.clientId")))
+        buildConfigField("String", "SAFEID_BASE_URL", quoted(cfg("safeid.baseUrl", "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth")))
+        buildConfigField("String", "SAFEID_CLIENT_ID", quoted(cfg("safeid.clientId", "assinapdf-rixiycui")))
         buildConfigField("String", "SAFEID_REDIRECT_URI", quoted(redirectUri))
         buildConfigField("String", "SAFEID_SCOPE", quoted(cfg("safeid.scope", "signature_session")))
-        buildConfigField("int", "SAFEID_LIFETIME", cfg("safeid.lifetime", "900").toIntOrNull()?.toString() ?: "900")
+        buildConfigField("int", "SAFEID_LIFETIME", cfg("safeid.lifetime", "86400").toIntOrNull()?.toString() ?: "86400")
         buildConfigField("String", "SAFEID_TOKEN_MODE", quoted(cfg("safeid.tokenMode", "BROKER")))
-        buildConfigField("String", "SAFEID_BROKER_URL", quoted(cfg("safeid.brokerUrl")))
+        buildConfigField("String", "SAFEID_BROKER_URL", quoted(cfg("safeid.brokerUrl", "https://retorno-production.up.railway.app")))
         buildConfigField("String", "SAFEID_BROKER_KEY", quoted(cfg("safeid.brokerKey")))
-        buildConfigField("String", "SAFEID_PATH_AUTHORIZE", quoted(cfg("safeid.path.authorize", "v0/oauth/authorize")))
-        buildConfigField("String", "SAFEID_PATH_TOKEN", quoted(cfg("safeid.path.token", "v0/oauth/token")))
-        buildConfigField("String", "SAFEID_PATH_DISCOVERY", quoted(cfg("safeid.path.certificateDiscovery", "v0/oauth/certificate-discovery")))
-        buildConfigField("String", "SAFEID_PATH_SIGNATURE", quoted(cfg("safeid.path.signature", "v0/oauth/signature")))
+        buildConfigField("String", "SAFEID_PATH_AUTHORIZE", quoted(cfg("safeid.path.authorize", "authorize")))
+        buildConfigField("String", "SAFEID_PATH_TOKEN", quoted(cfg("safeid.path.token", "token")))
+        buildConfigField("String", "SAFEID_PATH_DISCOVERY", quoted(cfg("safeid.path.certificateDiscovery", "certificate-discovery")))
+        buildConfigField("String", "SAFEID_PATH_SIGNATURE", quoted(cfg("safeid.path.signature", "signature")))
         buildConfigField("String", "SAFEID_HASH_ALG_FIELD", quoted(cfg("safeid.hashAlgorithmField", "hash_algorithm")))
         buildConfigField("String", "SAFEID_POLICY_OID", quoted(cfg("safeid.policy.oid")))
         buildConfigField("String", "SAFEID_POLICY_HASH_ALG", quoted(cfg("safeid.policy.hashAlgorithmOid")))

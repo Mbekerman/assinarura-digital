@@ -207,7 +207,9 @@ class PscApiClient(
     /** Extrai uma mensagem curta de erro, sem repetir o corpo inteiro (que pode conter dados pessoais). */
     private fun extractMessage(text: String): String = runCatching {
         val o = json.parseToJsonElement(text).jsonObject
-        (o.string("error_description") ?: o.string("message") ?: o.string("error"))?.take(200)
+        // o serviço intermediário devolve {error: "upstream_401", detail: "invalid_grant"}
+        (o.string("error_description") ?: o.string("message")
+            ?: listOfNotNull(o.string("error"), o.string("detail")).joinToString(" ").ifBlank { null })?.take(200)
     }.getOrNull().orEmpty()
 
     private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull

@@ -25,7 +25,6 @@ rootProject.name = "AssinaPDF"
 include(":core:stamps")
 include(":core:signing")
 include(":verify:pdf-jvm")
-include(":server:token-broker")
 
 // O módulo Android só entra no build quando há um Android SDK disponível (Android Studio, CI ou
 // local.properties com sdk.dir). Sem SDK, os módulos JVM continuam compiláveis e testáveis.

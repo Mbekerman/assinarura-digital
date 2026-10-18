@@ -11,11 +11,12 @@ object SafeIdSettings {
             if (BuildConfig.SAFEID_BASE_URL.isBlank()) add("safeid.baseUrl")
             if (BuildConfig.SAFEID_CLIENT_ID.isBlank()) add("safeid.clientId")
             if (BuildConfig.SAFEID_TOKEN_MODE == "BROKER" && BuildConfig.SAFEID_BROKER_URL.isBlank()) add("safeid.brokerUrl")
+            if (BuildConfig.SAFEID_TOKEN_MODE == "BROKER" && BuildConfig.SAFEID_BROKER_KEY.isBlank()) add("safeid.brokerKey (segredo SAFEID_BROKERKEY)")
         }
         if (missing.isNotEmpty()) {
             return Loaded(
                 null,
-                "Faltam ${missing.joinToString()} em signing-config.properties. " +
+                "Faltam ${missing.joinToString()} na configuração do build. " +
                     "O editor funciona normalmente; a assinatura digital fica indisponível até o APK ser gerado com as credenciais da Safeweb.",
             )
         }
