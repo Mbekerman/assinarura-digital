@@ -51,6 +51,8 @@ Sem Android SDK, o `settings.gradle.kts` ignora o módulo `:app` e compila só o
 4. O painel do carimbo selecionado tem tamanho em % e mm, ângulo exato, giro de 90°, duplicar,
    caber na folha, restaurar padrão e aplicar a rotação a todos.
 5. Toque em **Assinar**, autorize no SafeID e use **Compartilhar** para enviar pelo WhatsApp.
+6. Na tela inicial, toque e segure um PDF assinado para entrar na seleção; toque nos outros para
+   marcá-los e use **Compartilhar** para enviar todos de uma vez.
 
 ## Arquitetura
 
@@ -154,7 +156,7 @@ Microsoft e não está no APK; o app usa a sans do sistema, como prevê o própr
 | `core:signing` | 17 | PKCE (RFC 7636), URL de autorização, troca de código, descoberta, assinatura, erros (401, 500, JSON inválido, sem rede), CMS PAdES, adulteração, certificado vencido |
 | `verify:pdf-jvm` | 9 | PDF exportado: largura física por formato, matrizes e pixels por rotação, dez carimbos, páginas mistas, conteúdo vetorial preservado (Teste H), assinatura válida, adulteração, PDF já assinado |
 | `app` (unitário) | 2 | Nomes de arquivo de saída |
-| `app` (instrumentado, emulador no CI) | 3 | Compartilhamento abre o editor (Teste A), onNewIntent, dez duplos toques e pinça (Testes E e G) |
+| `app` (instrumentado, emulador no CI) | 4 | Compartilhamento abre o editor (Teste A), onNewIntent, dez duplos toques e pinça (Testes E e G), seleção de vários PDFs assinados e envio único |
 
 Os PDFs gerados pelos testes da JVM ficam no artefato `pdfs-de-teste` do CI.
 

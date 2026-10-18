@@ -33,6 +33,25 @@ object ShareLauncher {
         context.startActivity(chooser)
     }
 
+    /** Vários PDFs de uma vez (ACTION_SEND_MULTIPLE); com um só, igual a [share]. */
+    fun shareAll(context: Context, files: List<File>, chooserTitle: String = "Compartilhar PDFs") {
+        require(files.isNotEmpty()) { "nenhum arquivo" }
+        if (files.size == 1) return share(context, files[0], chooserTitle)
+        val uris = ArrayList(files.map { uriFor(context, it) })
+        val clip = ClipData.newRawUri(files[0].name, uris[0])
+        uris.drop(1).forEach { clip.addItem(ClipData.Item(it)) }
+        val send = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            type = MIME
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+            clipData = clip
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(send, chooserTitle).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(chooser)
+    }
+
     /** Abre o PDF em outro leitor. Devolve false se não houver app para PDF. */
     fun open(context: Context, file: File): Boolean {
         val uri = uriFor(context, file)

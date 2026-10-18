@@ -219,6 +219,11 @@ class AppViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
+    /** PDFs assinados dos documentos [ids] que ainda existem no aparelho, na mesma ordem. */
+    suspend fun signedFiles(ids: List<String>): List<File> = ids.mapNotNull { id ->
+        c.sessions.load(id)?.signedPath?.let(::File)?.takeIf { it.exists() }
+    }
+
     private suspend fun openSession(session: EditingSession) {
         try {
             val info = withContext(Dispatchers.IO) { PdfInspector.inspect(File(session.localPath)) }
