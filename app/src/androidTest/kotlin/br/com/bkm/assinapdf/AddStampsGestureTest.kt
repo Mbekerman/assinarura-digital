@@ -23,8 +23,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Teste E e G: com "Adicionar assinaturas" ativo, dez duplos toques criam dez carimbos
- * independentes, com o mesmo percentual da largura; o zoom não altera o tamanho real.
+ * Testes E e G: com "Adicionar assinaturas" ativo, dez duplos toques criam dez carimbos
+ * independentes, cada um centrado no ponto tocado e com o mesmo percentual da largura da página;
+ * o zoom por pinça não altera os carimbos.
+ *
+ * Os toques são definidos em coordenadas da página e convertidos para a tela pela transformação
+ * atual do visualizador, para não depender do tamanho da tela do emulador.
  */
 @RunWith(AndroidJUnit4::class)
 class AddStampsGestureTest {
@@ -50,32 +54,66 @@ class AddStampsGestureTest {
                 scenario.onActivity { on = it.appViewModel.state.value.settings.addMode }
                 on
             }
+            compose.waitUntil(5_000) {
+                var ready = false
+                scenario.onActivity { ready = it.appViewModel.viewport != null }
+                ready
+            }
             compose.waitForIdle()
+
+            // Grade 2 × 5 na metade de cima da folha A4 (sempre visível com ajuste à largura).
+            val targets = (0 until 10).map { i -> Pair(if (i % 2 == 0) 0.25 else 0.75, 0.06 + 0.10 * (i / 2)) }
             val canvas = compose.onNodeWithContentDescription("Documento PDF")
-            for (i in 0 until 10) {
-                val col = i % 2
-                val row = i / 2
+            val log = StringBuilder()
+            for ((i, t) in targets.withIndex()) {
+                var screen = Offset.Zero
+                var before = 0
+                scenario.onActivity { a ->
+                    val vm = a.appViewModel
+                    val v = vm.viewport!!
+                    val slot = vm.layout!!.slots[0]
+                    screen = Offset(
+                        v.toScreenX(slot.left + t.first * slot.width).toFloat(),
+                        v.toScreenY(slot.top + t.second * slot.height).toFloat(),
+                    )
+                    before = vm.state.value.sheet.stamps.size
+                }
                 canvas.performTouchInput {
-                    doubleClick(Offset(width * (0.28f + 0.44f * col), height * (0.22f + 0.08f * row)))
+                    assertTrue("toque $i fora da área visível: $screen em ${width}x$height", screen.y < height && screen.x < width)
+                    doubleClick(screen)
                 }
                 compose.waitForIdle()
+                var after = 0
+                scenario.onActivity { after = it.appViewModel.state.value.sheet.stamps.size }
+                log.append("toque $i em $screen: $before -> $after\n")
             }
+
             scenario.onActivity { a ->
                 val stamps = a.appViewModel.state.value.sheet.stamps
-                assertEquals(10, stamps.size)
+                assertEquals(log.toString(), 10, stamps.size)
                 assertEquals(10, stamps.map { it.id }.toSet().size)
                 stamps.forEach { assertEquals(stamps.first().widthFraction, it.widthFraction, 1e-9) }
+                // cada carimbo nasce no ponto tocado (tolerância de 1% da página)
+                for ((s, t) in stamps.zip(targets)) {
+                    assertEquals(log.toString(), t.first, s.centerX, 0.01)
+                    assertEquals(log.toString(), t.second, s.centerY, 0.01)
+                }
             }
+
             // zoom por pinça não altera os carimbos
             var before: List<Stamp> = emptyList()
-            scenario.onActivity { before = it.appViewModel.state.value.sheet.stamps }
+            var scaleBefore = 0.0
+            scenario.onActivity {
+                before = it.appViewModel.state.value.sheet.stamps
+                scaleBefore = it.appViewModel.viewport!!.scale
+            }
             canvas.performTouchInput {
-                pinch(center + Offset(-50f, 0f), center + Offset(-200f, 0f), center + Offset(50f, 0f), center + Offset(200f, 0f))
+                pinch(center + Offset(-30f, 0f), center + Offset(-150f, 0f), center + Offset(30f, 0f), center + Offset(150f, 0f))
             }
             compose.waitForIdle()
             scenario.onActivity { a ->
                 assertEquals(before, a.appViewModel.state.value.sheet.stamps)
-                assertTrue(a.appViewModel.viewport != null)
+                assertTrue("o zoom deveria ter aumentado", a.appViewModel.viewport!!.scale > scaleBefore)
             }
         }
     }
