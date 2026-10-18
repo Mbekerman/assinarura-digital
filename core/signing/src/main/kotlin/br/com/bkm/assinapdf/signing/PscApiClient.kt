@@ -197,7 +197,7 @@ class PscApiClient(
             throw SigningException.Network(e)
         }
         response.use { r ->
-            val text = r.body.string()
+            val text = r.body?.string().orEmpty()
             if (r.code == 401 || r.code == 403) throw SigningException.SessionExpired()
             if (!r.isSuccessful) throw SigningException.Http(r.code, extractMessage(text))
             return runCatching { json.parseToJsonElement(text) }.getOrElse { throw SigningException.InvalidResponse("JSON inválido") }

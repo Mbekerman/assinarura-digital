@@ -127,7 +127,7 @@ pelo token; não recebe documentos nem hashes e não registra corpos de requisi�
 | AndroidX, Jetpack Compose, Material 3, DataStore, Browser | Interface e armazenamento | Apache 2.0 |
 | pdfbox-android 2.0.27.0 (com.tom-roush) | Leitura, carimbos e assinatura no PDF | Apache 2.0 |
 | Bouncy Castle 1.86 (jdk15to18) | CMS/PAdES e verificação | Bouncy Castle (MIT) |
-| OkHttp 5.5.0 | Chamadas HTTPS ao SafeID | Apache 2.0 |
+| OkHttp 4.12.0 | Chamadas HTTPS ao SafeID | Apache 2.0 |
 | kotlinx.coroutines, kotlinx.serialization | Assíncrono e JSON | Apache 2.0 |
 | Apache PDFBox 2.0.37 | Somente testes na JVM | Apache 2.0 |
 

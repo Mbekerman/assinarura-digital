@@ -16,7 +16,7 @@ serialization = "1.9.0"
 pdfboxAndroid = "2.0.27.0"
 pdfboxJvm = "2.0.37"
 bouncycastle = "1.86"
-okhttp = "5.5.0"
+okhttp = "4.12.0"
 # Testes
 junit = "4.13.2"
 androidxJunit = "1.2.1"
