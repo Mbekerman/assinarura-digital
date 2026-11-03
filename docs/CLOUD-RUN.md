@@ -10,15 +10,31 @@ controla mais, por isso a migração começa trocando esse segredo.
 
 ## Passo a passo
 
-### 1. Portal da Safeweb (antes de tudo)
+### 1. Painel da Safeweb
 
-1. Gere um **novo `client_secret`** para a aplicação `assinapdf-rixiycui`. O antigo deve ser tratado
-   como exposto.
-2. Remova a URI de retorno antiga, `https://retorno-production.up.railway.app/oauth/callback`. Se
-   outra pessoa registrar esse endereço na Railway, os códigos de autorização iriam para ela. Sem o
-   `client_secret` e o verificador PKCE, que fica no celular, o código não serve para nada, mas não há
-   motivo para manter o endereço.
-3. A URI nova só existe depois do passo 2. Volte aqui ao final.
+Endereço: <https://admin-safeid.safeweb.com.br/login>. O caminho abaixo foi tirado do código
+público do painel; os nomes na tela podem variar um pouco.
+
+**Trocar a URL de retorno:** Workspaces > abra o workspace da aplicação > lista **Aplicações** >
+ícone de editar da AssinaPDF > campo **URL para redirecionamento** > **Salvar**. Troque a URL da
+Railway pela do Cloud Run (`<url>/oauth/callback`).
+
+**Trocar o `client_secret`:** o painel não tem opção para gerar outro segredo numa aplicação que já
+existe. Ele só lista, cadastra, edita e "resgata" aplicações. O jeito de trocar sem depender do
+suporte é este:
+
+1. Em **Aplicações**, cadastre uma aplicação nova, com a URL de retorno do Cloud Run. O painel gera
+   um `client_id` e um `client_secret` novos.
+2. No Cloud Shell, rode `CLIENT_ID=<client_id novo> ./deploy-cloudrun.sh --novo-segredo` e digite o
+   segredo novo quando ele pedir.
+3. No GitHub, crie a variável `SAFEID_CLIENTID` com o `client_id` novo e gere o APK.
+4. Depois de assinar um documento com o APK novo, edite a aplicação antiga no painel e mude o
+   **Status** para inativa.
+
+A outra opção é pedir ao suporte da Safeweb que gere um segredo novo para `assinapdf-rixiycui`.
+
+O segredo antigo deve ser tratado como exposto: ficou numa conta da Railway que o titular não
+controla mais.
 
 ### 2. Google Cloud (Cloud Shell)
 
@@ -50,7 +66,8 @@ dólar por mês pelos dois segredos.
 
 ### 3. Depois da publicação
 
-1. **Safeweb:** cadastre a URI de retorno mostrada pelo script (`<url>/oauth/callback`).
+1. **Safeweb:** cadastre a URI de retorno mostrada pelo script (`<url>/oauth/callback`), como no
+   passo 1.
 2. **GitHub** (Settings > Secrets and variables > Actions):
    - aba **Variables**: `SAFEID_SERVERURL` com a URL do serviço;
    - aba **Secrets**: `SAFEID_BROKERKEY` com a chave nova.

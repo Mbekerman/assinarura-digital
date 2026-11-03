@@ -49,6 +49,8 @@ jobs:
           RELEASE_KEYPASSWORD: ${{ secrets.RELEASE_KEYPASSWORD }}
           # Endereço do servidor de retorno (server/retorno no Cloud Run): variável do repositório, não segredo.
           SAFEID_SERVERURL: ${{ vars.SAFEID_SERVERURL }}
+          # client_id da aplicação no painel da Safeweb; sem a variável, vale o padrão do build.
+          SAFEID_CLIENTID: ${{ vars.SAFEID_CLIENTID }}
           # Chave de acesso ao servidor de retorno (segredo assinapdf-broker-key no Secret Manager).
           # URL base da API e client_id do SafeID já têm padrão em app/build.gradle.kts.
           SAFEID_BROKERKEY: ${{ secrets.SAFEID_BROKERKEY }}

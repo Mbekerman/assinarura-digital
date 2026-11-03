@@ -7,13 +7,14 @@
 #   --novo-segredo  substitui o client_secret guardado (depois de gerar outro no portal da Safeweb)
 #   --nova-chave    gera outra chave do app (SAFEID_BROKERKEY); exige APK novo
 # Variáveis opcionais: REGION (padrão southamerica-east1), SERVICE (padrão assinapdf-retorno),
-#   PUBLIC_URL (domínio próprio já mapeado, ex.: https://assina.exemplo.com.br)
+#   PUBLIC_URL (domínio próprio já mapeado, ex.: https://assina.exemplo.com.br),
+#   CLIENT_ID (client_id de uma aplicação nova cadastrada no painel da Safeweb)
 set -euo pipefail
 cd "$(dirname "$0")"
 
 REGION="${REGION:-southamerica-east1}"
 SERVICE="${SERVICE:-assinapdf-retorno}"
-CLIENT_ID="assinapdf-rixiycui"
+CLIENT_ID="${CLIENT_ID:-assinapdf-rixiycui}"
 TOKEN_URL="https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/token"
 SECRET_PSC="assinapdf-psc-client-secret"
 SECRET_KEY="assinapdf-broker-key"
@@ -107,6 +108,9 @@ Servidor no ar: $URL
 2. GitHub, Settings > Secrets and variables > Actions:
      aba Variables: SAFEID_SERVERURL = $URL
 EOF
+if [ "$CLIENT_ID" != "assinapdf-rixiycui" ]; then
+  echo "     aba Variables: SAFEID_CLIENTID = $CLIENT_ID"
+fi
 if [ -n "$CHAVE_NOVA" ]; then
   cat <<EOF
      aba Secrets:   SAFEID_BROKERKEY = $CHAVE_NOVA
