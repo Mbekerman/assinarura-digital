@@ -18,12 +18,17 @@ fun cfg(key: String, default: String = ""): String =
         ?: localConfig.getProperty(key)?.takeIf { it.isNotBlank() } ?: default).trim()
 fun quoted(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
-// Retorno HTTPS publicado na Railway (projeto "AssinaPDF retorno"); o painel do SafeID não aceita
-// esquemas próprios como assinapdf://. O Android abre o app direto por App Link verificado.
-val redirectUri = cfg("safeid.redirectUri", "https://retorno-production.up.railway.app/oauth/callback")
-val redirectScheme = redirectUri.substringBefore("://")
-val redirectHost = redirectUri.substringAfter("://").substringBefore("/")
-val redirectPath = "/" + redirectUri.substringAfter("://").substringAfter("/", "")
+// Servidor de retorno (server/retorno, publicado no Cloud Run): página de retorno HTTPS, assetlinks e
+// troca do código pelo token. O painel do SafeID não aceita esquemas próprios como assinapdf://; o
+// Android abre o app direto por App Link verificado. Sem endereço configurado, o app avisa que falta
+// configuração e não envia nada a host algum.
+val serverUrl = cfg("safeid.serverUrl").trimEnd('/')
+val redirectUri = cfg("safeid.redirectUri", if (serverUrl.isEmpty()) "" else "$serverUrl/oauth/callback")
+// O manifesto precisa de um host; ".invalid" é reservado (RFC 2606) e nunca resolve.
+val redirectForManifest = redirectUri.ifEmpty { "https://servidor-nao-configurado.invalid/oauth/callback" }
+val redirectScheme = redirectForManifest.substringBefore("://")
+val redirectHost = redirectForManifest.substringAfter("://").substringBefore("/")
+val redirectPath = "/" + redirectForManifest.substringAfter("://").substringAfter("/", "")
 
 android {
     namespace = "br.com.bkm.assinapdf"
@@ -43,7 +48,7 @@ android {
         buildConfigField("String", "SAFEID_SCOPE", quoted(cfg("safeid.scope", "signature_session")))
         buildConfigField("int", "SAFEID_LIFETIME", cfg("safeid.lifetime", "604800").toIntOrNull()?.toString() ?: "604800")
         buildConfigField("String", "SAFEID_TOKEN_MODE", quoted(cfg("safeid.tokenMode", "BROKER")))
-        buildConfigField("String", "SAFEID_BROKER_URL", quoted(cfg("safeid.brokerUrl", "https://retorno-production.up.railway.app")))
+        buildConfigField("String", "SAFEID_BROKER_URL", quoted(cfg("safeid.brokerUrl", serverUrl)))
         buildConfigField("String", "SAFEID_BROKER_KEY", quoted(cfg("safeid.brokerKey")))
         buildConfigField("String", "SAFEID_PATH_AUTHORIZE", quoted(cfg("safeid.path.authorize", "authorize")))
         buildConfigField("String", "SAFEID_PATH_TOKEN", quoted(cfg("safeid.path.token", "token")))

@@ -47,10 +47,16 @@ jobs:
           # Opcionais: padrão alias "assinapdf" e senha da chave igual à do arquivo
           RELEASE_KEYALIAS: ${{ secrets.RELEASE_KEYALIAS }}
           RELEASE_KEYPASSWORD: ${{ secrets.RELEASE_KEYPASSWORD }}
-          # Chave de acesso ao serviço intermediário (server/retorno, variável BROKER_KEY na Railway).
-          # URL base, client_id e endereço do serviço já têm padrão em app/build.gradle.kts.
+          # Endereço do servidor de retorno (server/retorno no Cloud Run): variável do repositório, não segredo.
+          SAFEID_SERVERURL: ${{ vars.SAFEID_SERVERURL }}
+          # Chave de acesso ao servidor de retorno (segredo assinapdf-broker-key no Secret Manager).
+          # URL base da API e client_id do SafeID já têm padrão em app/build.gradle.kts.
           SAFEID_BROKERKEY: ${{ secrets.SAFEID_BROKERKEY }}
-        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleRelease :app:testDebugUnitTest :app:assembleDebugAndroidTest
+        run: |
+          if [ -z "$SAFEID_SERVERURL" ]; then
+            echo "::warning::Variável SAFEID_SERVERURL não definida: o APK é gerado, mas a assinatura fica indisponível."
+          fi
+          ./gradlew --no-daemon :app:assembleDebug :app:assembleRelease :app:testDebugUnitTest :app:assembleDebugAndroidTest
 
       - name: Publicar APKs
         uses: actions/upload-artifact@v4
@@ -125,7 +131,7 @@ jobs:
       - name: Conferir a chave do APK
         id: chave
         env:
-          # Impressão digital SHA-256 da chave fixa; a mesma está no assetlinks.json da Railway.
+          # Impressão digital SHA-256 da chave fixa; a mesma está no assetlinks.json do server/retorno.
           ESPERADA: "9A:C8:BB:93:B4:37:99:48:82:41:CF:7F:AD:EC:00:9C:08:8F:A5:C0:96:32:92:9C:EB:AC:48:47:13:8E:F4:67"
         run: |
           APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)

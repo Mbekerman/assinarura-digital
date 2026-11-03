@@ -10,7 +10,10 @@ object SafeIdSettings {
         val missing = buildList {
             if (BuildConfig.SAFEID_BASE_URL.isBlank()) add("safeid.baseUrl")
             if (BuildConfig.SAFEID_CLIENT_ID.isBlank()) add("safeid.clientId")
-            if (BuildConfig.SAFEID_TOKEN_MODE == "BROKER" && BuildConfig.SAFEID_BROKER_URL.isBlank()) add("safeid.brokerUrl")
+            if (BuildConfig.SAFEID_REDIRECT_URI.isBlank()) add("safeid.serverUrl (variável SAFEID_SERVERURL)")
+            if (BuildConfig.SAFEID_TOKEN_MODE == "BROKER" && BuildConfig.SAFEID_BROKER_URL.isBlank() &&
+                BuildConfig.SAFEID_REDIRECT_URI.isNotBlank()
+            ) add("safeid.brokerUrl")
             if (BuildConfig.SAFEID_TOKEN_MODE == "BROKER" && BuildConfig.SAFEID_BROKER_KEY.isBlank()) add("safeid.brokerKey (segredo SAFEID_BROKERKEY)")
         }
         if (missing.isNotEmpty()) {

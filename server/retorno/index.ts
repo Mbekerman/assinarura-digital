@@ -96,6 +96,14 @@ function allow(ip: string): boolean {
   return true;
 }
 
+// No Cloud Run (K_SERVICE definido) o Google acrescenta o IP real ao FIM do X-Forwarded-For; o
+// início vem do cliente e pode ser forjado. Fora dele, vale o primeiro IP repassado pelo proxy.
+function clientIp(req: Request, server: any): string {
+  const fwd = (req.headers.get("x-forwarded-for") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const fromProxy = Bun.env.K_SERVICE ? fwd[fwd.length - 1] : req.headers.get("x-real-ip") ?? fwd[0];
+  return fromProxy ?? server?.requestIP?.(req)?.address ?? "?";
+}
+
 function jsonError(status: number, error: string, detail?: string): Response {
   return new Response(JSON.stringify(detail ? { error, detail } : { error }), {
     status,
@@ -114,7 +122,7 @@ async function handleToken(req: Request, server: any): Promise<Response> {
     return jsonError(503, "broker_not_configured");
   }
   if (!sameKey(req.headers.get("x-assinapdf-key") ?? "", env.BROKER_KEY ?? "")) return jsonError(401, "unauthorized");
-  const ip = req.headers.get("x-real-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? server?.requestIP?.(req)?.address ?? "?";
+  const ip = clientIp(req, server);
   if (!allow(ip)) return jsonError(429, "too_many_requests");
 
   const raw = await req.text();

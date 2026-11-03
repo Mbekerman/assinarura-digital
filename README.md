@@ -74,7 +74,7 @@ app/                     Aplicativo Android (Kotlin, Jetpack Compose, Material 3
 core/stamps/             Geometria das páginas e carimbos, editor, histórico (Kotlin puro)
 core/signing/            Cliente da API PSC, PKCE, CMS PAdES, verificação (Kotlin puro)
 verify/pdf-jvm/          Testa o motor de PDF do app na JVM, com Apache PDFBox
-server/retorno/          Função da Railway: retorno HTTPS (App Link) e troca do código OAuth
+server/retorno/          Servidor no Cloud Run: retorno HTTPS (App Link) e troca do código OAuth
 ```
 
 ### Modelo de coordenadas
@@ -120,18 +120,26 @@ feita no VALIDAR do ITI.
 A integração segue a documentação oficial do SafeID (`https://pscsafeweb.safewebpss.com.br/Docs/`)
 e já tem padrões no build: URL base
 `https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth`, `client_id`
-`assinapdf-rixiycui`, retorno `https://retorno-production.up.railway.app/oauth/callback`,
-escopo `signature_session` e validade de 7 dias. Detalhes em [docs/SAFEID.md](docs/SAFEID.md).
+`assinapdf-rixiycui`, escopo `signature_session` e validade de 7 dias. Detalhes em
+[docs/SAFEID.md](docs/SAFEID.md).
 
-O único valor que não fica no repositório é a chave de acesso ao serviço intermediário, que entra
-no build pelo segredo do GitHub `SAFEID_BROKERKEY` (ou `safeid.brokerKey` em
-`signing-config.properties`, fora do Git, para build local). Qualquer outro padrão pode ser
+Dois valores vêm de fora do repositório:
+
+- o endereço do servidor de retorno, pela variável do GitHub `SAFEID_SERVERURL` (ou
+  `safeid.serverUrl`). Dele saem o retorno `<url>/oauth/callback`, cadastrado no SafeID, e a troca
+  do token `<url>/v1/token`;
+- a chave de acesso a esse servidor, pelo segredo do GitHub `SAFEID_BROKERKEY` (ou
+  `safeid.brokerKey`).
+
+Para build local, os dois vão em `signing-config.properties`, fora do Git. Sem eles, o app abre e
+edita normalmente, mas avisa que a assinatura está indisponível. Qualquer outro padrão pode ser
 trocado do mesmo jeito (modelo em `signing-config.example.properties`).
 
-### Serviço intermediário (Railway)
+### Servidor de retorno (Google Cloud Run)
 
 O `/token` do SafeID exige `client_secret`, que não pode ficar no APK. O arquivo
-`server/retorno/index.ts` é a função Bun publicada na Railway (projeto "AssinaPDF retorno"). Ela:
+`server/retorno/index.ts` é um servidor Bun publicado no Google Cloud Run (até 03/11/2026 rodava
+na Railway). Ele:
 
 - serve `/.well-known/assetlinks.json` (App Link do app assinado com a chave fixa);
 - serve `/oauth/callback`, página que devolve o código ao app se o App Link não abrir sozinho;
@@ -139,9 +147,10 @@ O `/token` do SafeID exige `client_secret`, que não pode ficar no APK. O arquiv
   `client_id` e `client_secret` e chama o `/token` do SafeID. Devolve só `access_token`,
   `token_type`, `expires_in` e `scope`.
 
-Variáveis da função: `PSC_CLIENT_ID`, `PSC_CLIENT_SECRET`, `PSC_TOKEN_URL`, `BROKER_KEY` e
-`ALLOWED_REDIRECT_URIS`. Ela não recebe documentos nem hashes, não grava nada e não registra
-códigos ou tokens. A chave `X-AssinaPDF-Key` fica dentro do APK: serve para conter abuso, não é um
+Variáveis: `PSC_CLIENT_ID`, `PSC_CLIENT_SECRET`, `PSC_TOKEN_URL`, `BROKER_KEY` e
+`ALLOWED_REDIRECT_URIS`. No Cloud Run, `PSC_CLIENT_SECRET` e `BROKER_KEY` vêm do Secret Manager.
+O servidor não recebe documentos nem hashes, não grava nada e não registra códigos ou tokens.
+Publicação: [docs/CLOUD-RUN.md](docs/CLOUD-RUN.md). A chave `X-AssinaPDF-Key` fica dentro do APK: serve para conter abuso, não é um
 segredo forte. Quem a tiver ainda precisaria de um código de autorização aprovado pelo titular no
 app SafeID e do verificador PKCE correspondente.
 
