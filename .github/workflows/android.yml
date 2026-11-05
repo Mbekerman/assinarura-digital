@@ -41,6 +41,31 @@ jobs:
             echo "Sem RELEASE_KEYSTORE_BASE64: o APK de release usa a chave de debug e não será publicado."
           fi
 
+      # A chave do app precisa ser a mesma guardada no servidor (BROKER_KEY). Com a chave errada, a
+      # assinatura falha na troca do código e o APK publicado não assina. Um código falso basta para
+      # conferir: com a chave certa o servidor repassa ao PSC (que recusa o código, HTTP 400); com a
+      # chave errada responde 401 sem chamar o PSC.
+      - name: Conferir a chave do app no servidor de retorno
+        if: github.event_name != 'pull_request'
+        env:
+          SAFEID_SERVERURL: ${{ vars.SAFEID_SERVERURL }}
+          SAFEID_BROKERKEY: ${{ secrets.SAFEID_BROKERKEY }}
+        run: |
+          if [ -z "$SAFEID_SERVERURL" ] || [ -z "$SAFEID_BROKERKEY" ]; then
+            echo "::warning::SAFEID_SERVERURL ou SAFEID_BROKERKEY ausente: chave não conferida."
+            exit 0
+          fi
+          URL="${SAFEID_SERVERURL%/}"
+          BODY=$(printf '{"code":"ci-conferencia","code_verifier":"ci-conferencia","redirect_uri":"%s/oauth/callback"}' "$URL")
+          CODE=$(curl -sS -m 60 -o /dev/null -w '%{http_code}' -X POST "$URL/v1/token" \
+            -H 'Content-Type: application/json' -H "X-AssinaPDF-Key: $SAFEID_BROKERKEY" -d "$BODY")
+          echo "Servidor respondeu HTTP $CODE"
+          case "$CODE" in
+            400) echo "Chave do app aceita pelo servidor." ;;
+            401) echo "::error::SAFEID_BROKERKEY não confere com a chave do servidor (Secret Manager: assinapdf-broker-key)."; exit 1 ;;
+            *) echo "::warning::Resposta inesperada do servidor de retorno; chave não conferida." ;;
+          esac
+
       - name: APK e testes unitários do app
         env:
           RELEASE_STOREPASSWORD: ${{ secrets.RELEASE_STOREPASSWORD }}
@@ -157,4 +182,4 @@ jobs:
             --target "$GITHUB_SHA" \
             --prerelease \
             --title "AssinaPDF - versão de teste" \
-            --notes "APK gerado automaticamente a partir de ${GITHUB_SHA::7} (branch ${GITHUB_REF_NAME}), depois de todos os testes passarem. Assinatura SafeID ainda não configurada: o editor e o rascunho funcionam."
+            --notes "APK gerado automaticamente a partir de ${GITHUB_SHA::7} (branch ${GITHUB_REF_NAME}), depois de todos os testes passarem."

@@ -117,7 +117,17 @@ class PscApiClient(
                     .build()
             }
         }
-        val obj = execute(request).jsonObject
+        // Na troca do código ainda não há sessão: 401/403 aqui é configuração errada (chave do app ou
+        // client_secret), não autorização vencida. Pedir nova autorização só repetiria a falha.
+        val obj = execute(request) {
+            SigningException.NotConfigured(
+                if (config.tokenMode == TokenMode.BROKER) {
+                    "o servidor de autorização recusou a chave do app (SAFEID_BROKERKEY). Gere o APK com a chave guardada no servidor."
+                } else {
+                    "o PSC recusou o client_id na troca do código."
+                },
+            )
+        }.jsonObject
         val token = obj.string("access_token") ?: throw SigningException.InvalidResponse("access_token ausente")
         val expiresIn = obj.string("expires_in")?.toLongOrNull() ?: config.lifetimeSeconds.toLong()
         AccessToken(token, obj.string("token_type") ?: "Bearer", clock() + expiresIn * 1000, obj.string("scope"))
@@ -190,7 +200,10 @@ class PscApiClient(
         runCatching { Base64.getMimeDecoder().decode(b64) }.getOrElse { throw SigningException.InvalidResponse("assinatura não está em Base64") }
     }
 
-    private fun execute(request: Request): JsonElement {
+    private fun execute(
+        request: Request,
+        unauthorized: () -> SigningException = { SigningException.SessionExpired() },
+    ): JsonElement {
         val response: Response = try {
             http.newCall(request).execute()
         } catch (e: IOException) {
@@ -198,7 +211,7 @@ class PscApiClient(
         }
         response.use { r ->
             val text = r.body?.string().orEmpty()
-            if (r.code == 401 || r.code == 403) throw SigningException.SessionExpired()
+            if (r.code == 401 || r.code == 403) throw unauthorized()
             if (!r.isSuccessful) throw SigningException.Http(r.code, extractMessage(text))
             return runCatching { json.parseToJsonElement(text) }.getOrElse { throw SigningException.InvalidResponse("JSON inválido") }
         }

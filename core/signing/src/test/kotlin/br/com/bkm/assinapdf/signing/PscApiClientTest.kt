@@ -144,6 +144,13 @@ class PscApiClientTest {
     }
 
     @Test
+    fun `chave do app recusada na troca nao vira sessao expirada`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(401).setBody("""{"error":"unauthorized"}"""))
+        val e = assertThrows<SigningException.NotConfigured> { client(TokenMode.BROKER).exchangeCode("cod", Pkce("ver", "x")) }
+        assertTrue(e.message!!.contains("SAFEID_BROKERKEY"))
+    }
+
+    @Test
     fun `erros viram excecoes especificas`() = runTest {
         val token = AccessToken("t", "Bearer", Long.MAX_VALUE, null)
         server.enqueue(MockResponse().setResponseCode(401))
