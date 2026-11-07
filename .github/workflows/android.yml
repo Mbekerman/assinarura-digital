@@ -1,9 +1,14 @@
 name: Android
 
+# O push num branch claude/** já roda tudo e publica o APK de teste; o PR do mesmo
+# branch repetia os ~30 minutos, então o PR só roda para branches de outra origem.
+# Mudança só em texto (.md, docs/) não roda. Decisão do Moisés, 7/nov/2026.
 on:
   push:
     branches: [main, "claude/**"]
+    paths-ignore: ['**.md', 'docs/**']
   pull_request:
+    paths-ignore: ['**.md', 'docs/**']
   workflow_dispatch:
 
 permissions:
@@ -16,6 +21,7 @@ concurrency:
 jobs:
   build:
     name: Testes e APK
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'claude/')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
