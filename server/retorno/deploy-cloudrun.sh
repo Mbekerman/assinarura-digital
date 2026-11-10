@@ -63,6 +63,8 @@ CHAVE_NOVA=""
 if $NOVA_CHAVE || ! segredo_existe "$SECRET_KEY"; then
   CHAVE_NOVA="$(openssl rand -base64 36 | tr -d '\n/+=' | cut -c1-43)"
   printf '%s' "$CHAVE_NOVA" | gravar_segredo "$SECRET_KEY"
+  # Mostrada já aqui: se a publicação falhar adiante, a chave não se perde na tela.
+  echo "Chave nova do app (segredo SAFEID_BROKERKEY do GitHub): $CHAVE_NOVA"
 fi
 
 RUNTIME_SA="$RUNTIME_SA_NAME@$PROJECT.iam.gserviceaccount.com"
@@ -77,6 +79,12 @@ for s in "$SECRET_PSC" "$SECRET_KEY"; do
 done
 
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')"
+# Em projetos novos a conta padrão do Compute, que o Cloud Build usa em "run deploy --source",
+# não lê os fontes enviados nem grava a imagem; o papel Cloud Run Builder cobre isso.
+gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member "serviceAccount:$PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+  --role roles/run.builder --condition=None --quiet >/dev/null
+
 URL="${PUBLIC_URL:-https://$SERVICE-$PROJECT_NUMBER.$REGION.run.app}"
 URL="${URL%/}"
 REDIRECT="$URL/oauth/callback"
