@@ -419,9 +419,25 @@ private fun PagePicker(pages: List<PageGeometry>, onPick: (Int) -> Unit, onDismi
 private fun SigningDialogs(vm: AppViewModel, sign: SignUi) {
     when (sign) {
         SignUi.Idle -> Unit
-        SignUi.Authorizing -> ProgressDialog("Autorize no SafeID", "Confirme o uso do certificado na página segura do provedor. O PIN é digitado lá, nunca neste app.") {
+        SignUi.Authorizing -> ProgressDialog(
+            "Autorize no SafeID",
+            "Aprove no app SafeID e volte à página da Safeweb no navegador, sem fechá-la: ela devolve a autorização ao AssinaPDF. O PIN é digitado no SafeID, nunca neste app.",
+        ) {
             TextButton(onClick = { vm.cancelSigning() }) { Text("Cancelar") }
         }
+        SignUi.AwaitingReturn -> AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Falta concluir a autorização") },
+            text = {
+                Text(
+                    "A autorização ainda não voltou ao AssinaPDF. Depois de aprovar no app SafeID, abra a página da Safeweb " +
+                        "pelos apps recentes e aguarde; se aparecer \"Autorização recebida\", toque em Continuar. " +
+                        "Se você fechou essa página, autorize de novo.",
+                )
+            },
+            confirmButton = { TextButton(onClick = { vm.restartAuthorization() }) { Text("Autorizar de novo") } },
+            dismissButton = { TextButton(onClick = { vm.cancelSigning() }) { Text("Cancelar") } },
+        )
         is SignUi.Working -> ProgressDialog("Assinando", sign.step + "…", null)
         is SignUi.ChooseCertificate -> CertificateChooser(sign.options, onPick = { vm.chooseCertificate(it) }, onDismiss = { vm.dismissSignError() })
         is SignUi.Failed -> AlertDialog(

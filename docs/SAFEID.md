@@ -79,9 +79,11 @@ Quando o ITI publicar outra versão e revogar a v1.3, os valores precisam ser at
    `assinapdf://oauth/callback` e mostra o botão **Voltar ao AssinaPDF**.
 5. O app envia código e verificador PKCE ao servidor de retorno, recebe o token e assina.
 
-Ponto ainda não testado: se a Custom Tab fica em segundo plano enquanto o titular está no app
-SafeID e o redirecionamento por JavaScript não dispara o App Link, basta voltar à Custom Tab e
-tocar em **Voltar ao AssinaPDF**.
+Quem devolve o código ao app é a página `CertificateUse`, aberta no navegador. Se o titular aprova
+no app SafeID e fecha essa página (ou volta ao AssinaPDF antes de ela redirecionar), o código não
+chega. O app não desiste nesse caso: mantém a autorização pendente, explica que falta voltar à
+página e oferece **Autorizar de novo**. No Chrome, o redirecionamento sem toque do usuário costuma
+parar na página de retorno com o aviso "Ir para AssinaPDF?": basta tocar em **Continuar**.
 
 ## Validade do token
 

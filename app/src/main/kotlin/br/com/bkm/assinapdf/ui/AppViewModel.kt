@@ -74,6 +74,8 @@ data class OpenDocument(val session: EditingSession, val info: PdfInfo)
 sealed interface SignUi {
     data object Idle : SignUi
     data object Authorizing : SignUi
+    /** Voltou ao app sem o retorno da Safeweb; a autorização continua valendo se o retorno chegar. */
+    data object AwaitingReturn : SignUi
     data class Working(val step: String) : SignUi
     data class ChooseCertificate(val options: List<CloudCertificate>) : SignUi
     data class Failed(val message: String, val canRetry: Boolean) : SignUi
@@ -331,7 +333,7 @@ class AppViewModel(private val c: AppContainer) : ViewModel() {
                 canUndo = false,
                 canRedo = false,
                 currentPage = session.currentPage.coerceIn(0, (info.pages.size - 1).coerceAtLeast(0)),
-                sign = if (it.sign is SignUi.Authorizing) it.sign else SignUi.Idle,
+                sign = if (it.sign is SignUi.Authorizing || it.sign is SignUi.AwaitingReturn) it.sign else SignUi.Idle,
                 output = null,
             )
         }
@@ -534,17 +536,24 @@ class AppViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
-    /** A Activity voltou ao primeiro plano. Se a autorização estava aberta e não houve retorno, o usuário fechou o navegador. */
+    /**
+     * A Activity voltou ao primeiro plano sem o retorno da Safeweb. Quem devolve o código é a página
+     * da Safeweb no navegador, depois da aprovação no app SafeID; se o usuário voltou antes dela ou a
+     * fechou, o retorno ainda pode chegar. A autorização pendente é mantida e o usuário escolhe.
+     */
     fun onActivityResumed() {
         if (_state.value.sign !is SignUi.Authorizing) return
         if (System.currentTimeMillis() - authLaunchedAtMs < 700) return
         viewModelScope.launch {
             delay(900)
-            if (_state.value.sign is SignUi.Authorizing && !redirectInFlight) {
-                c.signing.cancelAuthorization()
-                setSign(SignUi.Failed("A autorização não foi concluída. O documento e os carimbos foram preservados.", canRetry = true))
-            }
+            if (_state.value.sign is SignUi.Authorizing && !redirectInFlight) setSign(SignUi.AwaitingReturn)
         }
+    }
+
+    /** Abre uma autorização nova, descartando a pendente (cujo retorno não veio). */
+    fun restartAuthorization() {
+        c.signing.cancelAuthorization()
+        launchAuthorization()
     }
 
     private fun runSigning(token: AccessToken) {
