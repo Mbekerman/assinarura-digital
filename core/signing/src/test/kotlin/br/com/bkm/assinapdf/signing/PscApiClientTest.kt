@@ -151,6 +151,14 @@ class PscApiClientTest {
     }
 
     @Test
+    fun `codigo recusado pelo PSC vira autorizacao vencida`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(400).setBody("""{"error":"upstream_401","detail":"invalid_grant"}"""))
+        assertThrows<SigningException.CodeExpired> { client(TokenMode.BROKER).exchangeCode("cod", Pkce("ver", "x")) }
+        server.enqueue(MockResponse().setResponseCode(400).setBody("""{"error":"upstream_400","detail":"invalid_request"}"""))
+        assertThrows<SigningException.Http> { client(TokenMode.BROKER).exchangeCode("cod", Pkce("ver", "x")) }
+    }
+
+    @Test
     fun `erros viram excecoes especificas`() = runTest {
         val token = AccessToken("t", "Bearer", Long.MAX_VALUE, null)
         server.enqueue(MockResponse().setResponseCode(401))

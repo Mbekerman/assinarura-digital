@@ -119,14 +119,20 @@ class PscApiClient(
         }
         // Na troca do código ainda não há sessão: 401/403 aqui é configuração errada (chave do app ou
         // client_secret), não autorização vencida. Pedir nova autorização só repetiria a falha.
-        val obj = execute(request) {
-            SigningException.NotConfigured(
-                if (config.tokenMode == TokenMode.BROKER) {
-                    "o servidor de autorização recusou a chave do app (SAFEID_BROKERKEY). Gere o APK com a chave guardada no servidor."
-                } else {
-                    "o PSC recusou o client_id na troca do código."
-                },
-            )
+        val obj = try {
+            execute(request) {
+                SigningException.NotConfigured(
+                    if (config.tokenMode == TokenMode.BROKER) {
+                        "o servidor de autorização recusou a chave do app (SAFEID_BROKERKEY). Gere o APK com a chave guardada no servidor."
+                    } else {
+                        "o PSC recusou o client_id na troca do código."
+                    },
+                )
+            }
+        } catch (e: SigningException.Http) {
+            // invalid_grant: código vencido, já usado ou de outra autorização. Na prática, demora para voltar ao app.
+            if (e.message.orEmpty().contains("invalid_grant")) throw SigningException.CodeExpired()
+            throw e
         }.jsonObject
         val token = obj.string("access_token") ?: throw SigningException.InvalidResponse("access_token ausente")
         val expiresIn = obj.string("expires_in")?.toLongOrNull() ?: config.lifetimeSeconds.toLong()
